@@ -125,11 +125,11 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         if (!batch.length) continue;
         await db.query(
           `INSERT INTO employees (id, emp_num, name, education, residence, company, shift, department, password_hash, role, must_change_password)
-           SELECT id, emp_num, name, education, residence, company, shift, department, password_hash, 'employee', 0
-           FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[])
+           SELECT id, emp_num, name, education, residence, company, shift, department, password_hash, 'employee', false
+           FROM unnest($1::int[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[])
              AS t(id, emp_num, name, education, residence, company, shift, department, password_hash)`,
           [
-            batch.map(e => e.id), batch.map(e => String(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
+            batch.map(e => e.id), batch.map(e => Number(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
             batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.department),
             batch.map(e => e.hash),
           ]
@@ -142,11 +142,11 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         await db.query(
           `UPDATE employees AS e SET emp_num = t.emp_num, name = t.name, education = t.education, residence = t.residence,
              company = t.company, shift = t.shift, department = t.department
-           FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
+           FROM unnest($1::int[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
              AS t(id, emp_num, name, education, residence, company, shift, department)
            WHERE e.id = t.id AND e.role = 'employee'`,
           [
-            batch.map(e => e.id), batch.map(e => String(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
+            batch.map(e => e.id), batch.map(e => Number(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
             batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.department),
           ]
         );
@@ -186,14 +186,30 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
       }
 
       // 6) Bulk upsert summaries.
+      // Excel cells can contain placeholder text ("-", "N/A", empty dashes...)
+      // in numeric columns; unnest() needs a clean float8[], so coerce here
+      // instead of sending raw cell text straight to a DOUBLE PRECISION column.
+      function toSummaryNumber(value) {
+        if (value === null || value === undefined || value === '') return null;
+        if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+        const text = String(value).trim()
+          .replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+          .replace(/٫/g, '.')
+          .replace(/,/g, '.');
+        const n = Number(text);
+        return Number.isFinite(n) ? n : null;
+      }
       const sCols = ['total_achievement', 'total_target', 'percentage', 'bonus_tier', 'unauthorized_absence', 'total_absence',
         'work_nature_allowance', 'monthly_target', 'total_present_days', 'total_absence_days', 'casual_leave',
         'leave_with_permission', 'leave_without_permission', 'sick_leave', 'late_days', 'late_hours', 'overtime_days',
         'overtime_hours', 'special_bonus_days', 'special_deductions'];
       for (const batch of chunks(validRows, CHUNK)) {
         if (!batch.length) continue;
-        const arrs = [batch.map(e => e.id), ...sCols.map(c => batch.map(e => e.summary[c]))];
-        const unnestTypes = ['int', ...sCols.map(() => 'float8')];
+        // bonus_tier is a TEXT column; every other column is DOUBLE PRECISION.
+        const arrs = [batch.map(e => e.id), ...sCols.map(c => c === 'bonus_tier'
+          ? batch.map(e => (e.summary[c] === null || e.summary[c] === undefined || e.summary[c] === '') ? null : String(e.summary[c]))
+          : batch.map(e => toSummaryNumber(e.summary[c])))];
+        const unnestTypes = ['int', ...sCols.map(c => c === 'bonus_tier' ? 'text' : 'float8')];
         const unnestSql = arrs.map((_, i) => `$${i + 1}::${unnestTypes[i]}[]`).join(', ');
         await db.query(
           `INSERT INTO employee_summary (employee_id, ${sCols.join(', ')})

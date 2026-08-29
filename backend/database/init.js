@@ -1,9 +1,14 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const fs = require('fs');
 const path = require('path');
 
-// PostgreSQL connection. Vercel/Neon/Supabase should provide DATABASE_URL.
-// A single pool is reused across warm serverless invocations.
+// By default node-postgres parses DATE columns into JS Date objects, which
+// then serialize to full ISO timestamps ("2026-07-21T00:00:00.000Z") in JSON
+// responses. All of this app's code (old SQLite-based logic, date <input>
+// fields, string comparisons/splits) expects plain "yyyy-MM-dd" strings, so
+// keep dates as the raw text Postgres sends instead of letting pg parse them.
+types.setTypeParser(1082, val => val); // 1082 = OID for the `date` type
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: Number(process.env.PG_POOL_MAX || 5),
