@@ -17,6 +17,17 @@ app.use('/api/employee', employeeRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/attendance', attendanceRoutes);
 
-app.get('/api/health', (req, res) => res.json({ ok: true, database: 'postgresql' }));
+// Keep API failures JSON so the frontend never tries to parse an HTML/plain-text 500 page as JSON.
+app.use((err, req, res, next) => {
+  console.error('[IEMS API]', err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'حدث خطأ في الخادم. راجع سجلات Vercel لمزيد من التفاصيل.' });
+});
+
+app.get('/api/health', (req, res) => res.json({
+  ok: true, database: 'postgresql',
+  databaseConfigured: !!process.env.DATABASE_URL,
+  jwtConfigured: !!process.env.JWT_SECRET
+}));
 
 module.exports = app;

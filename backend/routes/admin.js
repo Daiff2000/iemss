@@ -1,6 +1,6 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const db = require('../../database/init');
+const db = require('../database/init');
 const { requireAuth, requireAdmin, requireSupervisor, requireUploader } = require('../middleware/auth');
 const { parseMasterWorkbook } = require('../utils/master-import');
 const { computeTop5ByStage } = require('./employee');

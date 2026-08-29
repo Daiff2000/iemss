@@ -1,11 +1,15 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is not set. Copy .env.example to .env and set a real secret.');
+const JWT_SECRET = process.env.JWT_SECRET || '';
+
+function requireJwtSecret(res) {
+  if (JWT_SECRET) return true;
+  res.status(500).json({ error: 'JWT_SECRET غير مضبوط في Environment Variables على Vercel.' });
+  return false;
 }
 
 function requireAuth(req, res, next) {
+  if (!requireJwtSecret(res)) return;
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'مطلوب تسجيل الدخول' });
@@ -22,6 +26,7 @@ function requireAuth(req, res, next) {
 // Full-control admin only ('admin'). Used for anything sensitive:
 // managing employees, changing roles, deleting, viewing full overview, etc.
 function requireAdmin(req, res, next) {
+  if (!requireJwtSecret(res)) return;
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ error: 'هذا الإجراء متاح للمدير (تحكم كامل) فقط' });
   }
@@ -32,6 +37,7 @@ function requireAdmin(req, res, next) {
 // endpoint, since upload-only admins are allowed to import the Excel sheet
 // but nothing else.
 function requireSupervisor(req, res, next) {
+  if (!requireJwtSecret(res)) return;
   if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'supervisor')) {
     return res.status(403).json({ error: 'هذا الإجراء متاح لمدير النظام أو المشرف فقط' });
   }

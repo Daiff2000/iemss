@@ -1,4 +1,4 @@
-const express=require('express');const db=require('../../database/init');const {requireAuth}=require('../middleware/auth');const router=express.Router();
+const express=require('express');const db=require('../database/init');const {requireAuth}=require('../middleware/auth');const router=express.Router();
 const norm=v=>v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null;
 const list=v=>{const a=Array.isArray(v)?v:String(v??'').split(',');return [...new Set(a.flatMap(x=>String(x).split(',')).map(x=>x.trim()).filter(x=>x&&x!=='__ALL__'))]};
 const addIn=(w,p,col,vals)=>{if(!vals.length)return w;w+=` AND ${col} IN (${vals.map(()=>'?').join(',')})`;p.push(...vals);return w};

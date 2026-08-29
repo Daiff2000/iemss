@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../../database/init');
+const db = require('../database/init');
 const { requireAuth, JWT_SECRET } = require('../middleware/auth');
 
 const router = express.Router();
@@ -26,6 +26,10 @@ router.post('/login', async (req, res) => {
   const ip = req.ip;
   if (rateLimited(ip)) {
     return res.status(429).json({ error: 'محاولات كثيرة جدًا، حاول بعد قليل' });
+  }
+
+  if (!JWT_SECRET) {
+    return res.status(500).json({ error: 'JWT_SECRET غير مضبوط في Environment Variables على Vercel.' });
   }
 
   const { id, password } = req.body || {};

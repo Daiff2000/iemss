@@ -52,7 +52,11 @@ async function doLogin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id, password }),
     });
-    const data = await res.json();
+    const raw = await res.text();
+    let data = {};
+    try { data = raw ? JSON.parse(raw) : {}; } catch (_) {
+      data = { error: raw || t('login.errFields') };
+    }
     if (!res.ok) throw new Error(data.error || t('login.errFields'));
 
     sessionStorage.setItem('iems_token', data.token);
