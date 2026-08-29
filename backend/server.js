@@ -12,6 +12,12 @@ app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '12mb' }));
 
+const db = require('./database/init');
+app.use(async (req, res, next) => {
+  try { await db.ensureDatabase(); next(); }
+  catch (err) { console.error('[IEMS API] database bootstrap failed', err); next(err); }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/employee', employeeRoutes);
 app.use('/api/admin', adminRoutes);

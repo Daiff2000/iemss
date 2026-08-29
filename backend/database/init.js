@@ -1,4 +1,6 @@
 const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
 
 // PostgreSQL connection. Vercel/Neon/Supabase should provide DATABASE_URL.
 // A single pool is reused across warm serverless invocations.
@@ -78,6 +80,25 @@ async function exec(sql) {
 }
 
 // SQLite compatibility no-op. PostgreSQL enforces foreign keys permanently.
+
+let initializationPromise = null;
+async function ensureDatabase() {
+  if (initializationPromise) return initializationPromise;
+  initializationPromise = (async () => {
+    if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required.');
+    const client = await pool.connect();
+    try {
+      await client.query('SELECT pg_advisory_lock(82736451)');
+      const bootstrap = fs.readFileSync(path.join(__dirname, 'bootstrap.sql'), 'utf8');
+      await client.query(bootstrap);
+    } finally {
+      try { await client.query('SELECT pg_advisory_unlock(82736451)'); } catch (_) {}
+      client.release();
+    }
+  })().catch(err => { initializationPromise = null; throw err; });
+  return initializationPromise;
+}
+
 function pragma() { return undefined; }
 
-module.exports = { pool, query, prepare, transaction, exec, pragma };
+module.exports = { pool, query, prepare, transaction, exec, pragma, ensureDatabase };
