@@ -1,0 +1,163 @@
+<div class="app-shell">
+  <header class="topbar">
+  <div class="brand">
+    <a href="/home.html" class="brand-link" aria-label="الرئيسية">
+      <img src="/logo.png" alt="IEMS" class="topbar-logo logo-light"><img src="/logo-dark.png" alt="IEMS" class="topbar-logo logo-dark">
+      
+    </a>
+  </div>
+  <nav class="main-nav" aria-label="التنقل الرئيسي">
+    <a class="nav-item" href="/home.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span><span data-i18n="nav.dashboard">الرئيسية</span></a>
+    <a class="nav-item" id="nav-employees" data-nav-role="supervisor" href="/admin-employees.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg></span><span data-i18n="nav.employees">الموظفون</span></a>
+    <a class="nav-item" id="nav-import" data-nav-role="supervisor" href="/admin-import.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m17 8-5-5-5 5"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg></span><span data-i18n="nav.import">تحديث البيانات</span></a>
+    <a class="nav-item" id="nav-manual-entry" data-nav-role="admin" href="/admin-manual-entry.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></span><span data-i18n="nav.manualEntry">الإدخال اليدوي</span></a>
+    <a class="nav-item" id="nav-reports" data-nav-role="admin" href="/reports.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg></span><span data-i18n="nav.reports">التقارير</span></a>
+  </nav>
+  <div class="topbar-right">
+    <button class="icon-btn notification-btn" id="notifications-btn" title="الإشعارات" aria-label="الإشعارات"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg><i>3</i></button>
+    <button class="icon-btn" id="theme-toggle" data-i18n-aria="topbar.theme" title="تغيير المظهر" aria-label="تغيير المظهر"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="theme-icon" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path></svg></button>
+    <div class="user-chip"><div class="avatar" id="chip-avatar">?</div><div><div class="name" id="chip-name">—</div><div class="role" id="chip-role">—</div></div></div>
+    <button class="icon-btn logout-btn" id="logout-btn" data-i18n-aria="topbar.logout" title="تسجيل الخروج" aria-label="تسجيل الخروج"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path></svg></button>
+  </div>
+</header>
+
+  <main class="container">
+    <div class="hero">
+      <div><span class="eyebrow">الإدخال اليدوي</span><h1>الإدخال اليدوي</h1><p>إدخال البيانات مباشرة على السيستم بدل رفع شيت Excel — نفس البيانات اللي بيوزعها ملف الـ Master.</p></div>
+    </div>
+
+    <div class="me-tabs">
+      <button class="me-tab active" data-tab="employee">بيانات الموظف</button>
+      <button class="me-tab" data-tab="daily">السجل اليومي</button>
+      <button class="me-tab" data-tab="summary">الملخص الشهري</button>
+      <button class="me-tab" data-tab="supervisor">تارجت الإشراف</button>
+    </div>
+
+    <!-- ===== Tab: Employee basic info ===== -->
+    <section class="panel me-panel active" id="panel-employee">
+      <div class="panel-head"><div><h2>بيانات الموظف الأساسية</h2><p>لو الـID موجود هيتم تحديث بياناته، ولو جديد هيتعمل حساب بكلمة مرور افتراضية.</p></div></div>
+      <form id="form-employee">
+        <div class="me-form-grid">
+          <div class="me-field"><label>رقم الموظف (ID) *</label><input type="number" id="emp-id" required min="1" list="dl-emp-ids"></div>
+          <div class="me-field"><label>الرقم الوظيفي (emp_num)</label><input type="number" id="emp-num"></div>
+          <div class="me-field"><label>الاسم *</label><input type="text" id="emp-name" required></div>
+          <div class="me-field"><label>الشركة</label><input type="text" id="emp-company" list="dl-companies"></div>
+          <div class="me-field"><label>الشيفت (Shift)</label><input type="text" id="emp-shift" list="dl-shifts"></div>
+          <div class="me-field"><label>القسم (Department)</label><input type="text" id="emp-department" list="dl-departments"></div>
+          <div class="me-field"><label>المؤهل (Education)</label><input type="text" id="emp-education"></div>
+          <div class="me-field"><label>السكن (Residence)</label><input type="text" id="emp-residence"></div>
+        </div>
+        <div class="me-actions">
+          <button class="me-save-btn" type="submit">حفظ بيانات الموظف</button>
+          <span class="me-status" id="status-employee"></span>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== Tab: Daily stage record ===== -->
+    <section class="panel me-panel" id="panel-daily">
+      <div class="panel-head"><div><h2>السجل اليومي لكل مرحلة (Stage)</h2><p>سجّل موظف واحد في تاريخ واحد، أو املا جدول لعدة موظفين مرة واحدة.</p></div></div>
+
+      <div class="me-mode-toggle">
+        <button class="me-mode-btn active" data-mode="single" id="daily-mode-single">إدخال فردي</button>
+        <button class="me-mode-btn" data-mode="grid" id="daily-mode-grid">جدول (عدة موظفين)</button>
+      </div>
+
+      <div id="daily-single">
+        <form id="form-daily-single">
+          <div class="me-form-grid">
+            <div class="me-field"><label>الموظف *</label><select id="daily-emp" required></select></div>
+            <div class="me-field"><label>المرحلة (Stage) *</label><input type="text" id="daily-stage" required list="dl-stages"></div>
+            <div class="me-field"><label>التاريخ *</label><input type="date" id="daily-date" required></div>
+            <div class="me-field"><label>القيمة</label><input type="text" id="daily-value" placeholder="رقم أو نص (مثلاً: ا)"></div>
+          </div>
+          <div class="me-actions">
+            <button class="me-save-btn" type="submit">حفظ السجل</button>
+            <span class="me-status" id="status-daily-single"></span>
+          </div>
+        </form>
+      </div>
+
+      <div id="daily-grid" style="display:none">
+        <div class="me-grid-toolbar">
+          <div class="me-field"><label>المرحلة (Stage) *</label><input type="text" id="grid-stage" list="dl-stages"></div>
+          <div class="me-field"><label>من تاريخ *</label><input type="date" id="grid-date-from"></div>
+          <div class="me-field"><label>إلى تاريخ *</label><input type="date" id="grid-date-to"></div>
+          <button class="ghost-btn" id="grid-build-btn" type="button" title="بناء الجدول" aria-label="بناء الجدول"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18"></path><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M3 9h18"></path><path d="M3 15h18"></path></svg><span>بناء الجدول</span></button>
+        </div>
+        <p class="me-hint">اختر الشيفت/القسم (اختياري) لتصفية عدد الموظفين الظاهرين في الجدول، ثم اضغط "بناء الجدول".</p>
+        <div class="me-grid-toolbar">
+          <div class="me-field"><label>فلترة بالشيفت</label><select id="grid-filter-shift"><option value="">الكل</option></select></div>
+          <div class="me-field"><label>فلترة بالقسم</label><select id="grid-filter-department"><option value="">الكل</option></select></div>
+        </div>
+        <div class="me-grid-wrap"><table class="me-grid-table" id="grid-table"><thead></thead><tbody></tbody></table></div>
+        <div class="me-actions">
+          <button class="me-save-btn" id="grid-save-btn" type="button">حفظ الجدول كله</button>
+          <span class="me-status" id="status-daily-grid"></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Tab: Monthly summary ===== -->
+    <section class="panel me-panel" id="panel-summary">
+      <div class="panel-head"><div><h2>الملخص الشهري للموظف</h2><p>التارجت، الإنجاز، الغياب، الإجازات، التأخير والأوفرتايم.</p></div></div>
+      <form id="form-summary">
+        <div class="me-form-grid">
+          <div class="me-field field-wide"><label>الموظف *</label><select id="sum-emp" required></select></div>
+          <div class="me-field"><label>إجمالي الإنجاز</label><input type="number" step="any" id="sum-total_achievement"></div>
+          <div class="me-field"><label>إجمالي التارجت</label><input type="number" step="any" id="sum-total_target"></div>
+          <div class="me-field"><label>النسبة (0.0 - 1.0)</label><input type="number" step="any" id="sum-percentage"></div>
+          <div class="me-field"><label>فئة البونص (Bonus tier)</label><input type="text" id="sum-bonus_tier"></div>
+          <div class="me-field"><label>غياب بدون إذن</label><input type="number" step="any" id="sum-unauthorized_absence"></div>
+          <div class="me-field"><label>إجمالي الغياب</label><input type="number" step="any" id="sum-total_absence"></div>
+          <div class="me-field"><label>بدل طبيعة عمل</label><input type="number" step="any" id="sum-work_nature_allowance"></div>
+          <div class="me-field"><label>التارجت الشهري</label><input type="number" step="any" id="sum-monthly_target"></div>
+          <div class="me-field"><label>إجمالي أيام الحضور</label><input type="number" step="any" id="sum-total_present_days"></div>
+          <div class="me-field"><label>إجمالي أيام الغياب</label><input type="number" step="any" id="sum-total_absence_days"></div>
+          <div class="me-field"><label>إجازة عارضة</label><input type="number" step="any" id="sum-casual_leave"></div>
+          <div class="me-field"><label>إجازة بإذن</label><input type="number" step="any" id="sum-leave_with_permission"></div>
+          <div class="me-field"><label>إجازة بدون إذن</label><input type="number" step="any" id="sum-leave_without_permission"></div>
+          <div class="me-field"><label>إجازة مرضية</label><input type="number" step="any" id="sum-sick_leave"></div>
+          <div class="me-field"><label>أيام التأخير</label><input type="number" step="any" id="sum-late_days"></div>
+          <div class="me-field"><label>ساعات التأخير</label><input type="number" step="any" id="sum-late_hours"></div>
+          <div class="me-field"><label>أيام الأوفرتايم</label><input type="number" step="any" id="sum-overtime_days"></div>
+          <div class="me-field"><label>ساعات الأوفرتايم</label><input type="number" step="any" id="sum-overtime_hours"></div>
+          <div class="me-field"><label>أيام بونص خاص</label><input type="number" step="any" id="sum-special_bonus_days"></div>
+          <div class="me-field"><label>خصومات خاصة</label><input type="number" step="any" id="sum-special_deductions"></div>
+        </div>
+        <div class="me-actions">
+          <button class="me-save-btn" type="submit">حفظ الملخص الشهري</button>
+          <span class="me-status" id="status-summary"></span>
+        </div>
+      </form>
+    </section>
+
+    <!-- ===== Tab: Supervisor target ===== -->
+    <section class="panel me-panel" id="panel-supervisor">
+      <div class="panel-head"><div><h2>تارجت الإشراف (OPP A / OPP B / QC / File Trail)</h2><p>سجل تارجت يومي/شهري لمشرف في قسم معين، مربوط بموظف لو الاسم اتطابق.</p></div></div>
+      <form id="form-supervisor">
+        <div class="me-form-grid">
+          <div class="me-field"><label>اسم المشرف *</label><input type="text" id="sup-name" required></div>
+          <div class="me-field"><label>الموظف المرتبط (اختياري)</label><select id="sup-emp"><option value="">— بدون ربط —</option></select></div>
+          <div class="me-field"><label>القسم (Section) *</label><input type="text" id="sup-section" required list="dl-sections"></div>
+          <div class="me-field"><label>التاريخ *</label><input type="date" id="sup-date" required></div>
+          <div class="me-field"><label>تارجت يومي</label><input type="number" step="any" id="sup-target_daily"></div>
+          <div class="me-field"><label>تارجت شهري</label><input type="number" step="any" id="sup-target_monthly"></div>
+        </div>
+        <div class="me-actions">
+          <button class="me-save-btn" type="submit">حفظ تارجت الإشراف</button>
+          <span class="me-status" id="status-supervisor"></span>
+        </div>
+      </form>
+    </section>
+
+    <datalist id="dl-emp-ids"></datalist>
+    <datalist id="dl-stages"></datalist>
+    <datalist id="dl-sections"></datalist>
+    <datalist id="dl-companies"></datalist>
+    <datalist id="dl-shifts"></datalist>
+    <datalist id="dl-departments"></datalist>
+
+    <footer class="legal">Intercom IEMS © لوحة التحكم الداخلية</footer>
+  </main>
+</div>

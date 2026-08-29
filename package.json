@@ -1,0 +1,10 @@
+{
+  "name": "iems",
+  "version": "2.0.0",
+  "private": true,
+  "description": "IEMS Employee Management System",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend ci && npm --prefix frontend run build"
+  }
+}

@@ -1,0 +1,626 @@
+/* Home page-specific styles only. Shared/global rules now live solely in legacy-style.css (deduplicated to avoid double-maintaining the same CSS in two files). */
+.attendance-container{max-width:1600px}.attendance-hero{align-items:center}.attendance-range-badge{padding:10px 14px;border:1px solid var(--line);background:var(--panel);border-radius:14px;font-size:11px;font-weight:900;color:var(--primary);white-space:nowrap}.attendance-filters{margin-bottom:18px}.attendance-filter-grid input,.attendance-filter-grid select{width:100%;height:44px;border:1px solid var(--line);border-radius:12px;background:var(--soft);color:var(--text);padding:0 12px;outline:none}.attendance-filter-grid input:focus,.attendance-filter-grid select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(6,91,171,.1)}.attendance-apply{height:44px;white-space:nowrap}.quick-ranges{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:10px}.quick-ranges button{border:1px solid var(--line);background:var(--soft);color:var(--text);padding:7px 10px;border-radius:9px;cursor:pointer;font-size:10px}.quick-ranges button:hover{border-color:var(--primary);color:var(--primary)}.attendance-chart-grid{display:grid;grid-template-columns:1.65fr 1fr;gap:16px;margin-bottom:16px}.chart-card{min-height:390px}.chart-note{font-size:9px;font-weight:900;color:var(--muted);border:1px solid var(--line);padding:6px 9px;border-radius:9px;background:var(--soft)}.attendance-line-wrap{height:300px;margin-top:8px}.attendance-line-wrap svg{width:100%;height:100%;overflow:visible}.att-grid-line{stroke:var(--line);stroke-width:1}.att-axis-text{fill:var(--muted);font-size:11px;font-family:Cairo,sans-serif}.att-present-line{fill:none;stroke:var(--success);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}.att-absent-line{fill:none;stroke:var(--danger);stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:7 5}.att-present-dot{fill:var(--success)}.att-absent-dot{fill:var(--danger)}.chart-legend{display:flex;gap:18px;justify-content:center;margin-top:4px;font-size:10px;color:var(--muted)}.chart-legend span{display:flex;align-items:center;gap:6px}.chart-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}.legend-present{background:var(--success)}.legend-absent{background:var(--danger)}.attendance-bars{display:flex;flex-direction:column;gap:15px;margin-top:18px}.bar-row{display:grid;grid-template-columns:130px 1fr 52px;align-items:center;gap:10px}.bar-label{font-size:10px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar-track{height:25px;background:var(--soft);border:1px solid var(--line);border-radius:8px;overflow:hidden;display:flex}.bar-segment{height:100%;min-width:0}.bar-present{background:linear-gradient(135deg,var(--primary),var(--primary-2))}.bar-absent{background:color-mix(in srgb,var(--primary) 20%,var(--soft))}.bar-value{font:900 10px 'Cairo',monospace;text-align:end}.attendance-bars.compact{gap:11px}.attendance-bars.compact .bar-row{grid-template-columns:150px 1fr 45px}.attendance-bars.compact .bar-track{height:20px}.secondary-charts{grid-template-columns:1.35fr .65fr}.status-card{min-height:390px}.status-donut{width:190px;height:190px;border-radius:50%;margin:25px auto 18px;display:grid;place-items:center;position:relative;background:conic-gradient(var(--line) 0 100%)}.status-donut:after{content:"";position:absolute;inset:24%;border-radius:50%;background:var(--panel);box-shadow:0 0 0 1px var(--line)}.status-donut>div{position:relative;z-index:2;text-align:center}.status-donut strong{display:block;font:900 26px 'Cairo',monospace}.status-donut span{font-size:9px;color:var(--muted)}.status-legend{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px}.status-legend .status-item{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:10px}.status-item>span{display:flex;align-items:center;gap:7px;color:var(--muted)}.status-item i{width:9px;height:9px;border-radius:3px;display:inline-block}.status-item b{font-family:'Cairo',monospace}.company-summary-panel,.stage-summary-panel,.employee-detail-panel,.daily-panel{margin-bottom:16px}.attendance-table{width:100%;border-collapse:separate;border-spacing:0;min-width:800px;font-size:10px}.attendance-table th{background:var(--soft);color:var(--muted);font-size:9px;font-weight:900;padding:11px 9px;border-bottom:1px solid var(--line);white-space:nowrap}.attendance-table td{padding:10px 9px;border-bottom:1px solid var(--line);color:var(--text);white-space:nowrap}.attendance-table tbody tr:hover{background:var(--hover)}.attendance-table th:first-child,.attendance-table td:first-child{padding-inline-start:13px}.stage-matrix th,.stage-matrix td{text-align:center}.stage-matrix td:first-child{text-align:start;font-weight:900}.detail-head-row{align-items:center}.detail-actions{display:flex;gap:8px}#attendance-print:hover:not(:disabled){border-color:var(--primary);color:var(--primary);background:color-mix(in srgb,var(--primary) 8%,var(--panel))}.employee-detail-panel td:nth-child(6){color:var(--success);font-weight:900}.employee-detail-panel td:nth-child(7),.employee-detail-panel td:nth-child(8){color:var(--danger);font-weight:900}.employee-detail-panel td:nth-child(10){color:var(--primary);font-weight:900}.empty-attendance{padding:30px!important;text-align:center;color:var(--muted);font-size:11px}.att-status-present{color:var(--success)!important;font-weight:900}.att-status-absent{color:var(--danger)!important;font-weight:900}.att-status-medical{color:#7c3aed!important;font-weight:900}@media(max-width:950px){.attendance-chart-grid,.secondary-charts{grid-template-columns:1fr}.attendance-hero{align-items:flex-start;flex-direction:column}}@media(max-width:680px){.attendance-apply{width:100%}.bar-row{grid-template-columns:95px 1fr 40px}.attendance-bars.compact .bar-row{grid-template-columns:105px 1fr 40px}.status-legend{grid-template-columns:1fr}.detail-head-row{align-items:flex-start;flex-direction:column}.detail-actions{width:100%}.detail-actions button{flex:1}.attendance-range-badge{width:100%;text-align:center}}@media print{.attendance-page-shell .topbar,.attendance-page-shell .hero,.attendance-filters,.attendance-chart-grid,.secondary-charts,.detail-actions,.legal{display:none!important}.attendance-page-shell .container{max-width:none;padding:0}.company-summary-panel,.stage-summary-panel,.employee-detail-panel,.daily-panel{box-shadow:none;break-inside:avoid}.attendance-table{min-width:0;font-size:8px}.attendance-table th,.attendance-table td{padding:6px}}
+
+.stage-absence-table tfoot td{background:var(--soft);border-top:2px solid var(--line)}.table-total-row td{font-weight:900}.attendance-export-actions{display:flex!important;gap:8px;flex-wrap:wrap}.attendance-export-actions button{min-height:38px}.attendance-export-actions svg{width:16px;height:16px}.attendance-export-actions .excel-btn:hover:not(:disabled){border-color:var(--success);color:var(--success)}.attendance-export-actions .pdf-btn:hover:not(:disabled){border-color:var(--danger);color:var(--danger)}
+#attendance-pdf-root{position:fixed;left:-99999px;top:0;width:1100px;background:#fff;z-index:-1}.att-pdf-sheet{direction:rtl;background:#fff;color:#111;padding:28px;font-family:Arial,Tahoma,sans-serif}.att-pdf-head{display:flex;align-items:center;justify-content:center;gap:28px;border-bottom:2px solid #222;padding-bottom:16px;margin-bottom:16px}.att-pdf-head img{width:140px;height:auto;object-fit:contain}.att-pdf-head h1{font-size:26px;margin:0 0 5px}.att-pdf-head p{margin:0;color:#555;font-size:14px}.att-pdf-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}.att-pdf-summary span{border:1px solid #ccc;padding:10px;text-align:center;font-size:13px}.att-pdf-sheet h2{font-size:17px;margin:18px 0 8px}.att-pdf-table{width:100%;border-collapse:collapse;font-size:11px;margin-bottom:16px}.att-pdf-table th{background:#eee;border:1px solid #999;padding:7px}.att-pdf-table td{border:1px solid #bbb;padding:6px;text-align:center}.att-pdf-table td:first-child{text-align:right}
+@media(max-width:1050px){.attendance-kpis{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.attendance-container{padding-inline:12px}.attendance-chart-grid{gap:12px}.chart-card{min-height:330px}.attendance-line-wrap{height:230px}.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.attendance-table{min-width:720px}.stage-absence-table{min-width:600px}.detail-head-row{gap:12px}.attendance-export-actions{width:100%}.attendance-export-actions button{flex:1;min-width:0}}
+@media(max-width:430px){.attendance-export-actions{display:grid!important;grid-template-columns:1fr 1fr}.attendance-export-actions button:last-child{grid-column:1/-1}.attendance-filter-grid input,.attendance-filter-grid select,.attendance-apply{height:46px}}
+.attendance-export-actions button{width:auto;min-width:118px;height:40px;padding:0 12px;border-radius:10px;font-weight:900;cursor:pointer;font-size:11px;border:1px solid var(--line);background:var(--panel);color:var(--muted)}
+.attendance-export-actions button svg{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@media(max-width:430px){.attendance-export-actions button{width:100%;min-width:0}}
+
+/* ===== Attendance filter row: date field, selects, apply button ===== */
+.attendance-filter-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}
+.attendance-filter-grid .field{min-width:0;width:auto;flex:none}
+.attendance-filter-grid .single-date-field,.attendance-filter-grid .input-shell{width:100%;height:43px}
+.attendance-filter-grid .input-shell input,.attendance-filter-grid .input-shell select{height:43px;width:100%;box-sizing:border-box}
+.company-summary-panel .attendance-table{min-width:980px}
+.attendance-employee-search{margin-bottom:12px}
+.attendance-employee-search .field{width:100%}
+.attendance-employee-search .input-shell{width:100%;height:43px}
+.attendance-employee-search .input-shell input{width:100%;height:43px;box-sizing:border-box}
+/* "عرض النتائج" now lives in its own full-width row under the filter grid */
+.attendance-apply-row{width:100%;margin-top:14px}
+.attendance-apply-row .attendance-apply.attendance-apply-full{
+  width:100%;
+  min-width:0;
+  max-width:none;
+  height:52px;
+  min-height:52px;
+  justify-content:center;
+  font-size:13px;
+}
+@media(max-width:1050px){.attendance-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:680px){
+  .attendance-employee-search{margin-bottom:10px}
+  .attendance-filter-grid{grid-template-columns:1fr!important;gap:10px}
+  .attendance-filter-grid .field,.attendance-filter-grid .attendance-apply{grid-column:auto!important;width:100%;min-width:0}
+  .attendance-filter-grid .single-date-field,.attendance-filter-grid .input-shell{height:46px}
+  .attendance-filter-grid .input-shell input,.attendance-filter-grid .input-shell select,.attendance-filter-grid .attendance-apply{height:46px}
+  .attendance-employee-search .input-shell,.attendance-employee-search .input-shell input{height:46px}
+  .attendance-filter-box .filter-head{margin-bottom:12px}
+  .attendance-filter-box .quick-ranges{margin-top:10px}
+  .attendance-filter-box .quick-ranges button{flex:1}
+  .company-summary-panel .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .attendance-apply-row .attendance-apply.attendance-apply-full{height:48px;min-height:48px}
+}
+@media(max-width:430px){
+  .attendance-filter-grid label{font-size:9px}
+}
+
+
+/* Unified Home + Attendance page */
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
+
+:root{--primary:#065BAB;--primary-2:#044B8C;--accent:#4B86B5;--success:#16A34A;--warning:#F59E0B;--danger:#DC2626;--radius:12px;--shadow:none}
+
+
+/* Keep the original attendance page as the single visual system. */
+.dashboard-page .topbar, .attendance-page-shell .topbar { position: sticky; top: 0; z-index: 1000; }
+.attendance-page-shell .modern-dashboard { margin-top: 18px; }
+/* Unified dashboard refinements */
+.dashboard-top5-hidden{display:none!important}
+.single-company-chart{grid-template-columns:1fr}
+.summary-total-row td{background:var(--tbl-head)!important;color:var(--tbl-head-text)!important;font-weight:900!important;border-color:var(--tbl-grid-head)!important}
+.summary-total-row td b{color:var(--tbl-head-text)!important}
+.summary-total-row.att-status-present,.summary-total-row .att-status-present,
+.summary-total-row.att-status-absent,.summary-total-row .att-status-absent{color:var(--tbl-head-text)!important}
+.att-status-permission{color:#0ea5e9!important;font-weight:900}
+.visually-hidden{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.quick-ranges{display:flex;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:wrap}.quick-ranges .attendance-apply{margin-inline-start:6px;min-width:120px}
+
+.quick-ranges{align-items:center!important}
+.quick-ranges .attendance-apply{width:128px!important;min-width:128px!important;height:43px!important;padding:0 18px!important;margin-inline-start:0!important}
+.single-company-chart .chart-card{min-height:300px!important}
+.single-company-chart .attendance-bars{gap:10px!important;margin-top:12px!important;max-height:225px!important;overflow-y:auto!important;padding-inline-end:4px}
+.single-company-chart .bar-row{grid-template-columns:130px 1fr 52px!important}
+.single-company-chart .bar-track{height:20px!important}
+@media(max-width:760px){.single-company-chart .attendance-bars{max-height:none!important;overflow:visible!important}.single-company-chart .bar-row{grid-template-columns:95px 1fr 40px!important}}
+@media(max-width:430px){.quick-ranges .attendance-apply{width:100%!important;min-width:0!important}}
+
+/* Multi-select filters */
+.attendance-filter-grid select[multiple]{height:44px;min-height:44px;padding-block:0;cursor:pointer}.attendance-filter-grid select[multiple] option{padding:7px 10px;background:var(--panel);color:var(--text)}.attendance-filter-grid select[multiple] option:checked{background:var(--primary);color:#fff}.multi-filter-hint{font-size:9px;color:var(--muted);margin-top:8px;font-weight:700}
+
+/* ===== Home dashboard refinements ===== */
+.attendance-page-shell .attendance-filters .quick-ranges{
+  display:grid;
+  grid-template-columns:auto repeat(4,minmax(0,auto));
+  align-items:center;
+  gap:8px;
+}
+.attendance-page-shell .attendance-filters .quick-ranges .filter-apply{
+  grid-column:1 / -1;
+  width:100%;
+  min-height:46px;
+  height:46px;
+  justify-content:center;
+  background:linear-gradient(135deg,#065BAB,#044B8C);
+  color:#fff;
+  border:0;
+  border-radius:12px;
+  box-shadow:0 10px 22px rgba(6,91,171,.18);
+}
+.attendance-page-shell .attendance-filters .quick-ranges .filter-apply:hover{
+  background:linear-gradient(135deg,#044B8C,#033A70);
+  transform:translateY(-1px);
+}
+.attendance-page-shell .attendance-filters .quick-ranges .filter-apply svg{
+  width:18px;height:18px;
+}
+.attendance-page-shell .hero{
+  margin-top:0;
+}
+.attendance-page-shell .container{
+  padding-top:0;
+}
+.attendance-page-shell .attendance-hero{
+  margin-top:0;
+  padding-top:0;
+}
+@media(max-width:680px){
+  .attendance-page-shell .attendance-filters .quick-ranges{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .attendance-page-shell .attendance-filters .quick-ranges > span{
+    grid-column:1/-1;
+  }
+  .attendance-page-shell .attendance-filters .quick-ranges .filter-apply{
+    grid-column:1/-1;
+  }
+}
+
+/* ===== Home search / quick filters final layout ===== */
+.attendance-page-shell .attendance-filters .quick-ranges{
+  width:100%;
+  display:grid!important;
+  grid-template-columns:auto repeat(4,max-content) 1fr;
+  align-items:center;
+  gap:10px;
+}
+.attendance-page-shell .attendance-filters .quick-ranges .attendance-apply{
+  width:100%!important;
+  min-width:0!important;
+  height:48px!important;
+  margin:0!important;
+  border-radius:12px!important;
+  font-size:12px!important;
+  font-weight:900!important;
+}
+.attendance-page-shell .attendance-filters .quick-ranges .attendance-apply svg{width:21px!important;height:21px!important}
+@media(max-width:900px){
+  .attendance-page-shell .attendance-filters .quick-ranges{grid-template-columns:1fr 1fr 1fr}
+  .attendance-page-shell .attendance-filters .quick-ranges>span{grid-column:1/-1}
+  .attendance-page-shell .attendance-filters .quick-ranges .attendance-apply{grid-column:1/-1}
+}
+@media(max-width:520px){
+  .attendance-page-shell .attendance-filters .quick-ranges{grid-template-columns:1fr 1fr}
+  .attendance-page-shell .attendance-filters .quick-ranges>span{grid-column:1/-1}
+  .attendance-page-shell .attendance-filters .quick-ranges .attendance-apply{grid-column:1/-1}
+}
+
+/* ===== Home filter controls: match Reports date picker + compact header actions ===== */
+.attendance-page-shell .attendance-hero{
+  margin-top:18px!important;
+}
+.attendance-page-shell .home-title{
+  padding-top:4px;
+}
+.attendance-page-shell .attendance-filter-head{
+  align-items:center!important;
+  gap:18px;
+}
+.attendance-page-shell .attendance-filter-head-actions{
+  margin-inline-start:auto;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:9px;
+  flex-wrap:wrap;
+}
+.attendance-page-shell .attendance-filter-head-actions .quick-ranges{
+  width:auto!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:7px!important;
+  margin:0!important;
+  flex-wrap:wrap!important;
+}
+.attendance-page-shell .attendance-filter-head-actions .quick-ranges>span{
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.attendance-page-shell .attendance-filter-head-actions .quick-ranges button{
+  border:1px solid var(--line);
+  background:var(--soft);
+  color:var(--text);
+  padding:7px 10px;
+  border-radius:9px;
+  cursor:pointer;
+  font-size:10px;
+  font-weight:800;
+  white-space:nowrap;
+}
+.attendance-page-shell .attendance-filter-head-actions .quick-ranges button:hover{
+  border-color:var(--primary);
+  color:var(--primary);
+}
+.attendance-page-shell .attendance-filter-head-actions .attendance-refresh-btn,
+.attendance-page-shell .attendance-filter-head-actions .attendance-apply{
+  height:43px!important;
+  min-height:43px!important;
+  margin:0!important;
+  white-space:nowrap;
+}
+.attendance-page-shell .attendance-filter-head-actions .attendance-apply{
+  width:auto!important;
+  min-width:126px!important;
+  max-width:none!important;
+  padding:0 15px!important;
+  border-radius:11px!important;
+}
+.attendance-page-shell .attendance-filter-head-actions .attendance-apply svg{
+  width:19px!important;
+  height:19px!important;
+}
+.attendance-page-shell .attendance-filter-grid .report-date-field .report-date-picker{
+  height:43px!important;
+}
+@media(max-width:1050px){
+  .attendance-page-shell .attendance-filter-head{align-items:flex-start!important;}
+  .attendance-page-shell .attendance-filter-head-actions{width:100%;margin-inline-start:0;}
+}
+@media(max-width:680px){
+  .attendance-page-shell .attendance-hero{margin-top:14px!important;}
+  .attendance-page-shell .attendance-filter-head-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;}
+  .attendance-page-shell .attendance-filter-head-actions .quick-ranges{grid-column:1/-1;justify-content:flex-start;}
+  .attendance-page-shell .attendance-filter-head-actions .attendance-refresh-btn,
+  .attendance-page-shell .attendance-filter-head-actions .attendance-apply{width:100%!important;}
+}
+
+
+/* ===== Final UI polish: spacing, typography, alignment and responsive behavior ===== */
+.attendance-page-shell {
+  --home-gap: 16px;
+}
+.attendance-page-shell .container {
+  max-width: 1540px;
+  padding: 24px clamp(16px, 3vw, 42px) 56px;
+}
+.attendance-page-shell .attendance-hero {
+  margin: 0 0 18px !important;
+  padding: 0 !important;
+  min-height: 58px;
+}
+.attendance-page-shell .home-title .eyebrow {
+  margin-bottom: 4px;
+  font-size: 10px;
+  letter-spacing: .7px;
+}
+.attendance-page-shell .home-title h1 {
+  margin: 0 0 4px;
+  font-size: clamp(27px, 3vw, 34px);
+  line-height: 1.25;
+  font-weight: 900;
+}
+.attendance-page-shell .home-title p {
+  font-size: 12px;
+  line-height: 1.8;
+}
+.attendance-page-shell .attendance-range-badge {
+  min-width: 132px;
+  text-align: center;
+  padding: 9px 13px;
+  font-size: 11px;
+}
+
+.attendance-page-shell .attendance-filters {
+  margin-bottom: 18px;
+  padding: 17px 18px 14px;
+}
+.attendance-page-shell .attendance-filter-head {
+  margin-bottom: 14px !important;
+}
+.attendance-page-shell .filter-title-wrap {
+  gap: 10px;
+}
+.attendance-page-shell .filter-title-wrap h2 {
+  font-size: 15px;
+  line-height: 1.45;
+}
+.attendance-page-shell .filter-title-wrap span:not(.filter-icon) {
+  font-size: 10px;
+  line-height: 1.7;
+}
+.attendance-page-shell .attendance-filter-grid {
+  gap: 11px !important;
+}
+.attendance-page-shell .attendance-filter-grid .field label {
+  margin-bottom: 6px;
+  font-size: 10px;
+}
+.attendance-page-shell .attendance-filter-grid input,
+.attendance-page-shell .attendance-filter-grid select,
+.attendance-page-shell .attendance-filter-grid .single-date-field {
+  height: 43px !important;
+  min-height: 43px !important;
+  border-radius: 10px;
+}
+.attendance-page-shell .multi-filter-hint {
+  margin-top: 9px;
+  font-size: 9px;
+}
+
+.attendance-page-shell .attendance-filter-head-actions {
+  gap: 8px;
+}
+.attendance-page-shell .attendance-filter-head-actions .quick-ranges {
+  gap: 6px !important;
+}
+.attendance-page-shell .attendance-filter-head-actions .quick-ranges button {
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 9px;
+}
+.attendance-page-shell .attendance-filter-head-actions .attendance-refresh-btn,
+.attendance-page-shell .attendance-filter-head-actions .attendance-apply {
+  min-height: 40px !important;
+  height: 40px !important;
+}
+
+.attendance-page-shell .modern-dashboard {
+  margin-top: 0;
+}
+.attendance-page-shell .company-summary-panel,
+.attendance-page-shell .daily-panel,
+.attendance-page-shell .single-company-chart,
+.attendance-page-shell .employee-detail-panel {
+  margin-top: 16px;
+}
+.attendance-page-shell .panel-head {
+  gap: 12px;
+}
+.attendance-page-shell .panel-head h2 {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.attendance-page-shell .panel-head p {
+  margin-top: 3px;
+  font-size: 10px;
+  line-height: 1.7;
+}
+.attendance-page-shell .panel-head .eyebrow {
+  font-size: 9px;
+  letter-spacing: .4px;
+}
+.attendance-page-shell .table-wrap {
+  border-radius: 10px;
+}
+.attendance-page-shell .attendance-table {
+  min-width: 760px;
+}
+.attendance-page-shell .attendance-table th,
+.attendance-page-shell .attendance-table td {
+  padding: 11px 12px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.attendance-page-shell .detail-actions {
+  gap: 7px;
+}
+.attendance-page-shell .detail-actions button {
+  min-height: 38px;
+}
+
+.attendance-page-shell .absence-head {
+  padding: 15px 17px;
+}
+.attendance-page-shell .absence-table th,
+.attendance-page-shell .absence-table td {
+  padding: 10px 12px;
+  font-size: 10px;
+}
+
+@media (max-width: 1050px) {
+  .attendance-page-shell .attendance-filter-head {
+    gap: 12px;
+  }
+  .attendance-page-shell .attendance-filter-head-actions {
+    justify-content: flex-start;
+  }
+}
+@media (max-width: 760px) {
+  .attendance-page-shell .container {
+    padding: 18px 12px 42px;
+  }
+  .attendance-page-shell .attendance-hero {
+    min-height: auto;
+    margin-bottom: 14px !important;
+    gap: 10px;
+  }
+  .attendance-page-shell .home-title h1 {
+    font-size: 26px;
+  }
+  .attendance-page-shell .attendance-range-badge {
+    align-self: flex-end;
+    min-width: 112px;
+    font-size: 10px;
+  }
+  .attendance-page-shell .attendance-filters {
+    padding: 14px 12px 12px;
+  }
+  .attendance-page-shell .attendance-filter-head {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+  .attendance-page-shell .attendance-filter-head-actions {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+  .attendance-page-shell .attendance-filter-head-actions .quick-ranges {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100% !important;
+  }
+  .attendance-page-shell .attendance-filter-head-actions .quick-ranges > span {
+    grid-column: 1 / -1;
+  }
+  .attendance-page-shell .attendance-filter-head-actions .attendance-refresh-btn,
+  .attendance-page-shell .attendance-filter-head-actions .attendance-apply {
+    width: 100% !important;
+  }
+}
+@media (max-width: 430px) {
+  .attendance-page-shell .attendance-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .attendance-page-shell .attendance-range-badge {
+    align-self: stretch;
+  }
+  .attendance-page-shell .attendance-filter-head-actions .quick-ranges {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ============================================================
+   IEMS UI/UX REDESIGN — Responsive KPI + Creative Tables
+   ============================================================ */
+:root{
+  --ui-surface:var(--panel);
+  --ui-soft:var(--soft);
+  --ui-border:var(--line);
+  --ui-text:var(--text);
+  --ui-muted:var(--muted);
+  --ui-primary:var(--primary);
+  --ui-primary-soft:var(--hover);
+  --ui-shadow:var(--shadow,0 12px 34px rgba(25,42,70,.07));
+}
+
+/* KPI cards: vertically spaced, never visually stuck together */
+.kpi-grid,.attendance-kpis,.unified-attendance-kpis{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:18px!important;
+  align-items:stretch;
+  margin:18px 0 24px;
+}
+.kpi-grid > *, .attendance-kpis > *{
+  min-width:0;
+  margin:0!important;
+  border:1px solid var(--ui-border)!important;
+  border-radius:18px!important;
+  background:linear-gradient(180deg,var(--panel) 0%,var(--soft) 100%)!important;
+  box-shadow:var(--ui-shadow)!important;
+  overflow:hidden;
+  position:relative;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease;
+}
+.kpi-grid > *::before,.attendance-kpis > *::before{
+  content:"";position:absolute;inset:0 auto 0 0;width:4px;
+  background:var(--kpi-accent,var(--ui-primary));
+}
+.kpi-grid > *:hover,.attendance-kpis > *:hover{
+  transform:translateY(-3px);box-shadow:0 16px 38px rgba(0,0,0,.14)!important;
+  border-color:var(--primary)!important;
+}
+.kpi-grid > * > *, .attendance-kpis > * > *{position:relative;z-index:1}
+.kpi-grid .kpi-value,.attendance-kpis .kpi-value{font-weight:900}
+
+/* Panels */
+.panel,.filters,.unauthorized-absence-panel{
+  border:1px solid var(--ui-border)!important;
+  border-radius:20px!important;
+  box-shadow:var(--ui-shadow)!important;
+  background:var(--ui-surface)!important;
+}
+.panel-head{padding-bottom:16px!important}
+
+/* Creative table treatment — matches the app-wide table design, theme-aware */
+.table-wrap{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--panel);
+  overflow:auto;
+  scrollbar-width:thin;
+}
+.attendance-table,.panel table,.detail-panel table{
+  width:100%;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+  min-width:760px;
+}
+.attendance-table thead th,.panel table thead th{
+  position:sticky;top:0;z-index:2;
+  background:linear-gradient(135deg,var(--primary),var(--primary-2))!important;
+  color:#fff!important;
+  border-bottom:0!important;
+  padding:14px 13px!important;
+  font-size:11px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.attendance-table tbody td,.panel table tbody td{
+  padding:13px!important;
+  border-bottom:1px solid var(--line)!important;
+  color:var(--ui-text);
+  font-size:12px;
+  background:var(--panel);
+}
+
+.attendance-table tbody tr:hover td,.panel table tbody tr:hover td{
+  background:var(--ui-primary-soft)!important;
+}
+.attendance-table tbody tr:last-child td,.panel table tbody tr:last-child td{border-bottom:0}
+.attendance-table tbody td:first-child,.panel table tbody td:first-child{
+  font-weight:800;
+}
+.attendance-table tbody td:last-child,.panel table tbody td:last-child{font-weight:900}
+
+/* responsive page */
+@media(max-width:1200px){
+  .kpi-grid,.attendance-kpis,.unified-attendance-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+}
+@media(max-width:800px){
+  .container{width:min(100% - 24px,1200px)!important}
+  .kpi-grid,.attendance-kpis,.unified-attendance-kpis{
+    grid-template-columns:1fr!important;
+    gap:14px!important;
+  }
+  .kpi-grid > *, .attendance-kpis > *{min-height:92px}
+  .panel,.filters,.unauthorized-absence-panel{border-radius:16px!important}
+  .panel-head{padding:16px!important}
+  .table-wrap{margin:0 0 4px}
+  .attendance-table,.panel table{min-width:720px}
+  .attendance-table thead th,.panel table thead th{padding:11px 10px!important}
+  .attendance-table tbody td,.panel table tbody td{padding:11px 10px!important}
+}
+@media(max-width:520px){
+  .container{width:min(100% - 16px,1200px)!important}
+  .hero{padding:18px!important}
+  .kpi-grid,.attendance-kpis,.unified-attendance-kpis{gap:12px!important;margin:14px 0 18px}
+  .kpi-grid > *, .attendance-kpis > *{border-radius:14px!important}
+  .table-wrap{border-radius:13px}
+}
+
+/* keep wide data tables usable on phones instead of crushing columns */
+@media(max-width:680px){
+  .company-summary-panel .table-wrap,
+  .daily-panel .table-wrap,
+  .employee-detail-panel .table-wrap{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+}
+
+
+/* Employee view: only date range, stage and results button. */
+.attendance-page-shell.employee-home-view .employee-filter-hide{display:none!important}
+.attendance-page-shell.employee-home-view .attendance-filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+@media(max-width:680px){
+  .attendance-page-shell.employee-home-view .attendance-filter-grid{grid-template-columns:1fr!important}
+  .attendance-page-shell.employee-home-view .dashboard-grid{grid-template-columns:1fr!important}
+}
+#emp-kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+@media(max-width:680px){#emp-kpi-grid{grid-template-columns:1fr!important}}
+.attendance-page-shell .monthly-target-highlight{border:1px solid var(--primary)!important;background:var(--ui-primary-soft, rgba(6,91,171,.10))!important}
+.attendance-page-shell .monthly-target-highlight .highlight-value{color:var(--primary)!important}
+.detail-percentage-merged{vertical-align:middle!important;text-align:center!important;min-width:120px}
+.detail-percentage-merged b{display:block;color:var(--primary);font-size:14px}
+.detail-percentage-merged small{display:block;margin-top:4px;color:var(--muted);font-size:8px;line-height:1.5}
+.total-target-master-row td{background:var(--ui-primary-soft, rgba(6,91,171,.08))!important;font-weight:900!important}
+.supervisor-total-row td{background:var(--ui-primary-soft, rgba(6,91,171,.08))!important;font-weight:900!important}
+
+.att-status-casual{color:#d97706!important;font-weight:900}.att-status-permission{color:#2563eb!important;font-weight:900}
+
+
+/* ===== Employee welcome panel ===== */
+#welcome-message{display:none!important}
+.employee-welcome-content{display:grid;grid-template-columns:minmax(260px,.85fr) minmax(0,1.6fr);gap:24px;align-items:stretch;margin:0 0 18px;padding:26px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,rgba(6,91,171,.10),rgba(6,91,171,.025) 55%,var(--panel));box-shadow:0 14px 38px rgba(15,23,42,.06);overflow:hidden;position:relative}
+.employee-welcome-content:before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;inset:auto -90px -120px auto;background:radial-gradient(circle,rgba(6,91,171,.18),transparent 68%);pointer-events:none}
+.employee-welcome-copy{display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1}
+.employee-welcome-eyebrow{font-size:10px;font-weight:900;letter-spacing:1.5px;color:var(--primary);margin-bottom:8px}
+.employee-welcome-copy h2{font-size:25px;font-weight:900;margin:0 0 5px;color:var(--text)}
+.employee-welcome-copy p{font-size:15px;font-weight:900;color:var(--primary);margin:0 0 8px}
+.employee-welcome-name{font-size:11px;color:var(--muted);line-height:1.9;font-weight:700}
+.employee-welcome-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;position:relative;z-index:1}
+.employee-welcome-feature{display:flex;align-items:flex-start;gap:10px;padding:13px;border:1px solid var(--line);border-radius:15px;background:var(--panel);box-shadow:0 7px 18px rgba(15,23,42,.045)}
+.welcome-feature-icon{width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;border-radius:10px;background:rgba(6,91,171,.10);color:var(--primary);font-weight:900}
+.employee-welcome-feature div{min-width:0;display:flex;flex-direction:column;gap:2px}
+.employee-welcome-feature b{font-size:11px;font-weight:900;color:var(--text)}
+.employee-welcome-feature small{font-size:9.5px;line-height:1.65;color:var(--muted);font-weight:700}
+html[data-theme="dark"] .employee-welcome-content{background:linear-gradient(135deg,rgba(46,143,239,.14),rgba(7,7,7,.82) 58%,var(--panel));box-shadow:0 18px 45px rgba(0,0,0,.28)}
+html[data-theme="dark"] .employee-welcome-feature{background:rgba(255,255,255,.025);box-shadow:none}
+html[data-theme="dark"] .welcome-feature-icon{background:rgba(46,143,239,.16)}
+@media(max-width:900px){.employee-welcome-content{grid-template-columns:1fr}.employee-welcome-features{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.employee-welcome-content{padding:18px}.employee-welcome-features{grid-template-columns:1fr}.employee-welcome-copy h2{font-size:21px}}
+
+/* New Top-5 rank banner: cleaner, stronger and less yellow */
+.info-item.rank-badge-item{background:linear-gradient(135deg,rgba(6,91,171,.13),rgba(14,165,233,.06));border:1px solid rgba(6,91,171,.24);color:var(--primary);border-radius:16px;padding:13px 15px;box-shadow:0 7px 20px rgba(6,91,171,.08)}
+.info-item.rank-badge-item:before{content:"TOP 5";font-size:8px;font-weight:900;letter-spacing:1px;padding:4px 7px;border-radius:7px;background:var(--primary);color:#fff}
+.info-item.rank-badge-item b{color:var(--primary)}
+html[data-theme="dark"] .info-item.rank-badge-item{background:linear-gradient(135deg,rgba(46,143,239,.16),rgba(14,165,233,.05));border-color:rgba(46,143,239,.28)}

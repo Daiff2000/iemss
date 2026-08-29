@@ -1,0 +1,9 @@
+/* Employee management page — Top 5 highlight */
+.emp-row-top5{background:linear-gradient(90deg,rgba(245,158,11,.10),transparent 65%)}
+.emp-row-top5:hover{background:linear-gradient(90deg,rgba(245,158,11,.18),transparent 65%)}
+.emp-name-cell{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.top5-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900;color:#92400e;background:linear-gradient(135deg,#fde68a,#f59e0b);border-radius:999px;padding:2px 9px;line-height:1.6;box-shadow:0 2px 6px rgba(245,158,11,.35)}
+.status-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;border-radius:999px;padding:3px 11px;line-height:1.6;white-space:nowrap}
+.status-badge.status-active{color:#166534;background:rgba(34,197,94,.15)}
+.status-badge.status-left{color:#991b1b;background:rgba(239,68,68,.14)}
+.status-badge.status-archive{color:#475569;background:rgba(100,116,139,.16)}

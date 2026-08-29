@@ -1,0 +1,102 @@
+<div class="app-shell attendance-page-shell"><header class="topbar">
+  <div class="brand">
+    <a href="/home.html" class="brand-link" aria-label="الرئيسية">
+      <img src="/logo.png" alt="IEMS" class="topbar-logo logo-light"><img src="/logo-dark.png" alt="IEMS" class="topbar-logo logo-dark">
+      
+    </a>
+  </div>
+  <nav class="main-nav" aria-label="التنقل الرئيسي">
+    <a class="nav-item" id="nav-home" href="/home.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span><span data-i18n="nav.dashboard">الرئيسية</span></a>
+    <a class="nav-item" id="nav-employees" data-nav-role="supervisor" href="/admin-employees.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg></span><span data-i18n="nav.employees">الموظفون</span></a>
+    <a class="nav-item" id="nav-import" data-nav-role="supervisor" href="/admin-import.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m17 8-5-5-5 5"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg></span><span data-i18n="nav.import">تحديث البيانات</span></a>
+    <a class="nav-item" id="nav-manual-entry" data-nav-role="admin" href="/admin-manual-entry.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></span><span data-i18n="nav.manualEntry">الإدخال اليدوي</span></a>
+    <a class="nav-item" id="nav-reports" data-nav-role="admin" href="/reports.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg></span><span data-i18n="nav.reports">التقارير</span></a>
+  </nav>
+  <div class="topbar-right">
+    <button class="icon-btn notification-btn" id="notifications-btn" title="الإشعارات" aria-label="الإشعارات"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg><i>3</i></button>
+    <button class="icon-btn" id="theme-toggle" title="تغيير المظهر" aria-label="تغيير المظهر"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="theme-icon" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path></svg></button>
+    <div class="user-chip"><div class="avatar" id="chip-avatar">?</div><div><div class="name" id="chip-name">—</div><div class="role" id="chip-role">—</div></div></div>
+    <button class="icon-btn logout-btn" id="logout-btn" title="تسجيل الخروج" aria-label="تسجيل الخروج"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path></svg></button>
+  </div>
+</header>
+<main class="container attendance-container"><div class="hero attendance-hero"><div class="home-title"><span class="eyebrow">إدارة الموارد البشرية</span><h1>الرئيسية</h1><p>متابعة الموظفين والحضور والغياب والأداء من مكان واحد.</p></div><div class="attendance-range-badge" id="range-badge">—</div></div>
+<section class="filters filters-modern attendance-filters attendance-filter-box">
+  <div class="filter-head modern-filter-head attendance-filter-head">
+    <div class="filter-title-wrap"><span class="filter-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M7 12h10M10 19h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span><div><h2>تصفية بيانات الحضور</h2><span>حدد الفترة والمعايير المطلوبة ثم اعرض النتائج.</span></div></div>
+    <div class="attendance-filter-head-actions">
+      <div class="quick-ranges employee-filter-hide" aria-label="فترات سريعة"><span>فترات سريعة:</span><button type="button" data-range="today">اليوم</button><button type="button" data-range="week">هذا الأسبوع</button><button type="button" data-range="month">هذا الشهر</button><button type="button" data-range="all">كل البيانات</button></div>
+      <button class="reset-btn attendance-refresh-btn employee-filter-hide" id="attendance-reset" title="إعادة ضبط الفلاتر" aria-label="إعادة ضبط الفلاتر"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"></path><path d="M8 16H3v5"></path></svg><span>إعادة ضبط الفلاتر</span></button>
+    </div>
+  </div>
+  <input type="search" id="att-search" class="visually-hidden" tabindex="-1" aria-hidden="true">
+  <div class="filter-grid filter-grid-modern attendance-filter-grid">
+    <div class="field report-date-field"><label for="att-from">من تاريخ</label><div class="single-date-field report-date-picker"><span class="range-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v3"></path><path d="M16 2v3"></path><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M8 13h.01"></path><path d="M12 13h.01"></path><path d="M16 13h.01"></path><path d="M8 17h.01"></path><path d="M12 17h.01"></path><path d="M16 17h.01"></path></svg></span><input type="date" id="att-from" aria-label="من تاريخ"></div></div>
+    <div class="field report-date-field"><label for="att-to">إلى تاريخ</label><div class="single-date-field report-date-picker"><span class="range-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v3"></path><path d="M16 2v3"></path><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M8 13h.01"></path><path d="M12 13h.01"></path><path d="M16 13h.01"></path><path d="M8 17h.01"></path><path d="M12 17h.01"></path><path d="M16 17h.01"></path></svg></span><input type="date" id="att-to" aria-label="إلى تاريخ"></div></div>
+    <div class="field employee-filter-hide"><label>الشركة</label><div class="input-shell"><select id="att-company" multiple size="1" data-multi-filter="true" aria-label="كل الشركات"><option value="__ALL__">كل الشركات</option></select></div></div>
+    <div class="field employee-filter-hide"><label>المرحلة / القسم</label><div class="input-shell"><select id="att-department" multiple size="1" data-multi-filter="true" aria-label="كل المراحل"><option value="__ALL__">كل المراحل</option></select></div></div>
+    <div class="field employee-filter-hide"><label>الشيفت</label><div class="input-shell"><select id="att-shift" multiple size="1" data-multi-filter="true" aria-label="كل الشيفتات"><option value="__ALL__">كل الشيفتات</option></select></div></div>
+    <div class="field employee-filter-hide"><label>الحالة</label><div class="input-shell"><select id="att-status" multiple size="1" data-multi-filter="true" aria-label="كل الحالات"><option value="__ALL__" selected>كل الحالات</option><option value="present">حضور</option><option value="casual">عارضة</option><option value="permission">إذن</option><option value="unauthorized">بدون إذن</option><option value="medical">مرضي</option><option value="absent">غياب</option></select></div></div>
+    
+  </div>
+  <div class="attendance-apply-row"></div>
+  <div class="multi-filter-hint employee-filter-hide">يمكنك اختيار أكثر من قيمة داخل الفلتر نفسه.</div>
+</section>
+
+
+<!-- Internal Home state bridge: both sections use the single Home filter bar. -->
+<div id="home-filter-bridge" aria-hidden="true" style="display:none !important">
+  <input id="f-from" type="date"><input id="f-to" type="date">
+  <select id="f-stage"><option value="__ALL__">كل المراحل</option></select>
+  <div id="f-shift-field"><select id="f-shift"><option value="__ALL__">كل الشيفتات</option></select></div>
+  <button id="apply-btn" type="button"></button><button id="reset-btn" type="button"></button>
+  <div id="welcome-message"></div>
+</div>
+
+<section class="modern-dashboard" id="modern-dashboard" style="display:none">
+      <div class="kpi-grid" id="kpi-grid"></div><div class="attendance-kpis unified-attendance-kpis" id="attendance-kpis"></div>
+
+      <section class="unauthorized-absence-panel" id="unauthorized-absence-panel" style="display:none">
+        <div class="absence-head">
+          <div class="absence-title-wrap"><span class="absence-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span><div><span class="eyebrow" data-i18n="absence.eyebrow">تنبيه حضور</span><h2 data-i18n="absence.title">الموظفون الغائبون بدون إذن أكثر من يومين</h2></div></div>
+          <span class="absence-count" id="absence-count">0 موظف</span>
+        </div>
+        <div class="absence-table-wrap"><table class="absence-table"><thead><tr><th data-i18n="absence.col.employee">الموظف</th><th data-i18n="absence.col.company">الشركة</th><th data-i18n="absence.col.shift">الشيفت</th><th data-i18n="absence.col.days">عدد الأيام</th></tr></thead><tbody id="unauthorized-absence-list"></tbody></table></div>
+      </section>
+
+
+    </section>
+
+    <section class="overview-grid" id="overview-grid" style="display:none"></section>
+
+    <div class="kpi-grid" id="emp-kpi-grid" style="display:none"></div>
+
+    <section class="dashboard-grid" id="self-view-grid" style="display:none">
+      <div class="panel employee-panel">
+        <div class="panel-head"><div><span class="eyebrow" data-i18n="emp.eyebrow">بيانات الموظف</span><h2 data-i18n="emp.title">بيانات الموظف</h2></div></div>
+        <div class="emp-info-card" id="emp-info-card"></div>
+      </div>
+      <div class="panel performance-panel">
+        <div class="panel-head"><div><span class="eyebrow" data-i18n="perfDetail.eyebrow">الأداء</span><h2 data-i18n="perfDetail.title">تفاصيل التارجت والأداء</h2></div></div>
+        <div class="emp-info-card" id="emp-perf-card"></div>
+      </div>
+    </section>
+
+    <section class="panel supervisor-target-panel" id="supervisor-target-panel" style="display:none">
+      <div class="panel-head"><div><span class="eyebrow" data-i18n="sup.eyebrow">الإشراف</span><h2 data-i18n="sup.title">تفاصيل تارجت الاشراف</h2></div></div>
+      <div id="supervisor-target-container"></div>
+    </section>
+
+    <section class="panel detail-panel" id="detail-panel" style="display:none">
+      <div class="panel-head"><div><span class="eyebrow" data-i18n="detail.eyebrow">التفاصيل اليومية</span><h2 data-i18n="detail.title">التفاصيل اليومية</h2></div></div>
+      <div class="table-wrap"><table><thead><tr id="detail-head"></tr></thead><tbody id="detail-body"></tbody></table></div>
+    </section>
+    
+<section class="panel company-summary-panel" id="company-summary-panel" style="display:none"><div class="panel-head"><div><span class="eyebrow">ملخص الشركات</span><h2>ملخص أداء الشركات</h2><p>عرض سريع لأعداد الموظفين والحضور والغياب ونسبة الحضور.</p></div></div><div class="table-wrap"><table class="attendance-table"><thead><tr><th>الشركة</th><th>عدد الموظفين</th><th>الحضور</th><th>الغياب</th><th>حضور الخريجين</th><th>غياب الخريجين</th><th>حضور الطلاب</th><th>غياب الطلاب</th><th>نسبة الحضور</th></tr></thead><tbody id="company-summary-body"></tbody></table></div></section>
+<section class="panel daily-panel"><div class="panel-head"><div><span class="eyebrow">المتابعة اليومية</span><h2>الحضور يومًا بيوم</h2><p>تفصيل يومي لنتائج الفترة المحددة.</p></div></div><div class="table-wrap"><table class="attendance-table"><thead><tr><th>التاريخ</th><th>اليوم</th><th>الإجمالي الحضور</th><th>إجمالي الغياب</th><th>إجازة عارضة</th><th>إجازة بإذن</th><th>إجازة بدون إذن</th><th>إجازة مرضي</th><th>نسبة الحضور</th></tr></thead><tbody id="daily-body"></tbody></table></div></section>
+<section class="attendance-chart-grid single-company-chart" id="single-company-chart" style="display:none"><article class="panel chart-card"><div class="panel-head"><div><span class="eyebrow">COMPANIES</span><h2>مقارنة الشركات</h2><p>مقارنة الحضور والغياب بين الشركات.</p></div><span class="chart-note">Bar Chart</span></div><div class="attendance-bars" id="company-bar-chart"></div></article></section>
+<section class="panel employee-detail-panel" id="employee-detail-panel" style="display:none"><div class="panel-head detail-head-row"><div><span class="eyebrow">تفاصيل الموظفين</span><h2>التفاصيل اليومية للموظفين</h2><p id="employee-detail-summary">—</p></div><div class="detail-actions report-actions attendance-export-actions"><button class="excel-btn" id="attendance-excel" title="تحميل Excel" aria-label="تحميل Excel"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg> تحميل Excel</button><button class="pdf-btn" id="attendance-pdf" title="تحميل PDF" aria-label="تحميل PDF"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg> تحميل PDF</button><button id="attendance-print" title="طباعة" aria-label="طباعة"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"></path><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><path d="M6 14h12v8H6z"></path></svg> طباعة</button></div></div><div class="table-wrap"><table class="attendance-table"><thead><tr><th>الموظف</th><th>ID</th><th>الشركة</th><th>الشيفت</th><th>المرحلة</th><th>إجمالي الحضور</th><th>إجمالي الغياب</th><th>إجازة عارضة</th><th>إجازة بإذن</th><th>إجازة بدون إذن</th><th>إجازة مرضي</th><th>نسبة الحضور</th></tr></thead><tbody id="employee-detail-body"></tbody></table></div></section>
+
+
+
+
+<footer class="legal">Intercom IEMS © 2026 — الرئيسية</footer></main></div>

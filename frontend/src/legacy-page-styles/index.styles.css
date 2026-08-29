@@ -1,0 +1,137 @@
+
+:root{
+  --primary:#065BAB; --primary2:#044B8C; --bg:#f8f9fe; --panel:#fff;
+  --surface:#f3f4f7; --line:#e4e6eb; --text:#191c1f; --muted:#667085;
+}
+html[data-theme="dark"]{
+  --bg:#000000; --panel:#070707; --surface:#0D0D0D; --line:#1A1A1A; --text:#eaeaea; --muted:#8a8a8a;
+}
+html[data-theme="dark"] body{background:var(--bg);color:var(--text)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;font-family:Cairo,Arial,sans-serif}
+body{background:var(--bg);color:var(--text);overflow:hidden;transition:background .2s,color .2s}
+.login-shell{min-height:100vh;display:grid;grid-template-columns:1fr 1fr}
+.login-form-side{display:flex;align-items:center;justify-content:center;padding:48px clamp(28px,6vw,90px);background:var(--panel);position:relative;z-index:2;box-shadow:12px 0 40px rgba(15,23,42,.06)}
+.form-wrap{width:100%;max-width:470px}
+.logo-wrap{display:flex;justify-content:center;align-items:center;margin-bottom:40px;min-height:40px}
+.logo-wrap img{height:48px;width:auto;max-width:230px;object-fit:contain;display:block}
+.logo-wrap .logo-dark{display:none}
+html[data-theme="dark"] .logo-wrap .logo-light{display:none}
+html[data-theme="dark"] .logo-wrap .logo-dark{display:block}
+.welcome{text-align:center;margin-bottom:32px}
+.welcome-back-tag{display:block;margin-bottom:10px;font-size:26px;line-height:1.3;font-weight:900;color:var(--text);letter-spacing:.2px}
+.welcome p{font-size:14px;line-height:1.8;color:var(--muted);font-weight:700}
+.login-form{display:flex;flex-direction:column;gap:22px}
+.field{display:flex;flex-direction:column;gap:8px}
+.field label{font-size:13px;font-weight:800;color:var(--muted);text-align:right}
+html[dir="ltr"] .field label{text-align:left}
+
+/* Theme-aware input box — uses variables only, so dark mode is correct
+   automatically. This previously had a hardcoded white background and a
+   forced-white autofill overlay, which is why fields looked white-on-white
+   in dark mode. */
+.input-box{height:52px;display:flex;align-items:center;gap:10px;padding:0 15px;border:1px solid var(--line);border-radius:10px;background:var(--surface);transition:border-color .2s,box-shadow .2s,background .2s;direction:rtl}
+html[dir="ltr"] .input-box{direction:ltr}
+.input-box:focus-within{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary);background:var(--panel)}
+.input-box input:-webkit-autofill,
+.input-box input:-webkit-autofill:hover,
+.input-box input:-webkit-autofill:focus{
+  -webkit-text-fill-color:var(--text);
+  caret-color:var(--text);
+  transition:background-color 9999s ease-in-out 0s;
+  box-shadow:0 0 0 1000px var(--surface) inset;
+}
+.theme-toggle{position:absolute;top:24px;right:24px;width:42px;height:42px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer;z-index:10;box-shadow:0 6px 20px rgba(15,23,42,.07);transition:.2s}
+html[dir="ltr"] .theme-toggle{right:auto;left:24px}
+.theme-toggle:hover{border-color:#b8c0cb;color:var(--text);transform:translateY(-1px)}
+html[data-theme="dark"] .theme-toggle{box-shadow:0 6px 20px rgba(0,0,0,.22)}
+.lang-toggle{position:absolute;top:24px;right:76px;height:42px;padding:0 16px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);display:grid;place-items:center;cursor:pointer;z-index:10;box-shadow:0 6px 20px rgba(15,23,42,.07);transition:.2s;font:800 12px Cairo}
+html[dir="ltr"] .lang-toggle{right:auto;left:76px}
+.lang-toggle:hover{border-color:#b8c0cb;color:var(--text);transform:translateY(-1px)}
+html[data-theme="dark"] .lang-toggle{box-shadow:0 6px 20px rgba(0,0,0,.22)}
+.input-box .icon{width:19px;height:19px;flex:0 0 19px;color:var(--muted);stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.input-box input{width:100%;height:100%;border:0;outline:0;background:transparent;color:var(--text);font:700 14px Cairo;direction:inherit;text-align:right}
+html[dir="ltr"] .input-box input{text-align:left}
+.input-box input::placeholder{color:var(--muted);font-weight:600}
+.password-toggle{border:0;background:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;padding:3px}
+.password-toggle:hover{color:var(--text)}
+.forgot{display:flex;justify-content:flex-start;margin-top:2px}
+html[dir="ltr"] .forgot{justify-content:flex-end}
+.forgot a{font-size:12px;font-weight:800;color:var(--primary);text-decoration:none}
+.forgot a:hover{text-decoration:underline}
+.login-btn{width:100%;height:54px;border:0;border-radius:28px;background:var(--primary);color:#fff;font:900 16px Cairo;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:9px;box-shadow:0 7px 18px rgba(6,91,171,.24);transition:.2s}
+.login-btn:hover{background:var(--primary2);transform:translateY(-1px);box-shadow:0 10px 24px rgba(6,91,171,.30)}
+.login-btn:disabled{opacity:.7;cursor:wait;transform:none}
+.login-error{display:none;text-align:center;color:#d92d20;background:#fff2f0;border:1px solid #ffd6d1;border-radius:10px;padding:10px;font-size:12px;font-weight:700}
+html[data-theme="dark"] .login-error{background:rgba(217,45,32,.12);border-color:rgba(217,45,32,.35);color:#ff8478}
+.terms{text-align:center;margin-top:28px;color:var(--muted);font-size:11px;line-height:1.8;font-weight:700}
+.terms a{color:var(--primary);text-decoration:none}
+.visual-side{position:relative;overflow:hidden;min-height:100vh;background:linear-gradient(160deg,#065BAB,#044B8C 38%,#033A70)}
+.visual-side:before{content:"";position:absolute;inset:-10%;background:
+ radial-gradient(circle at 15% 20%,rgba(56,189,248,.55),transparent 42%),
+ radial-gradient(circle at 85% 15%,rgba(129,140,248,.45),transparent 40%),
+ radial-gradient(circle at 75% 85%,rgba(34,211,238,.35),transparent 45%),
+ radial-gradient(circle at 20% 85%,rgba(59,130,246,.4),transparent 40%);
+ filter:blur(10px);animation:auroraDrift 22s ease-in-out infinite alternate}
+@keyframes auroraDrift{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-2%,2%,0) scale(1.06)}}
+html[data-theme="dark"] .visual-side{background:linear-gradient(160deg,#050b18,#0a1530 45%,#050c1c)}
+html[data-theme="dark"] .visual-side:before{background:
+ radial-gradient(circle at 15% 20%,rgba(56,189,248,.28),transparent 42%),
+ radial-gradient(circle at 85% 15%,rgba(129,140,248,.24),transparent 40%),
+ radial-gradient(circle at 75% 85%,rgba(34,211,238,.18),transparent 45%),
+ radial-gradient(circle at 20% 85%,rgba(59,130,246,.22),transparent 40%)}
+.network{position:absolute;inset:0;opacity:.5;background-image:
+ linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px),
+ linear-gradient(90deg,rgba(255,255,255,.055) 1px,transparent 1px);
+background-size:46px 46px;mask-image:radial-gradient(circle at 50% 40%,black,transparent 72%)}
+.node{position:absolute;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);backdrop-filter:blur(10px);border-radius:32px;box-shadow:0 20px 45px rgba(3,10,30,.35);animation:nodeFloat 7s ease-in-out infinite}
+.node.n1{width:150px;height:150px;top:9%;right:12%;border-radius:50%;animation-delay:.2s}
+.node.n2{width:92px;height:92px;top:32%;left:10%;animation-delay:1.4s}
+.node.n3{width:190px;height:190px;bottom:9%;right:20%;border-radius:44px;animation-delay:.7s}
+.node.n4{width:64px;height:64px;bottom:30%;left:24%;border-radius:50%;animation-delay:2.1s}
+@keyframes nodeFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+.node:after{content:"";position:absolute;inset:20%;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.35),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.22)}
+.connection{position:absolute;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.4),transparent);transform-origin:left center}
+.c1{width:380px;top:32%;right:17%;transform:rotate(145deg)}.c2{width:320px;top:55%;left:8%;transform:rotate(-22deg)}.c3{width:420px;bottom:25%;right:19%;transform:rotate(18deg)}
+.visual-content{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:64px}
+.glass{max-width:560px;padding:28px;border-radius:14px;background:rgba(255,255,255,.72);border:1px solid rgba(255,255,255,.75);backdrop-filter:blur(18px);box-shadow:0 18px 50px rgba(30,64,110,.10)}
+html[data-theme="dark"] .glass{background:rgba(24,27,31,.72);border-color:rgba(255,255,255,.08)}
+.glass .eyebrow{font-size:10px;font-weight:900;letter-spacing:2px;color:var(--primary);margin-bottom:8px}
+.glass h2{font-size:22px;font-weight:900;color:var(--primary);margin-bottom:10px}
+html[data-theme="dark"] .glass h2{color:#b8c0ca}
+.glass p{font-size:13px;line-height:2;color:#5b6472}
+html[data-theme="dark"] .glass p{color:#9098a2}
+.brand-chip{display:inline-flex;align-items:center;gap:8px;margin-bottom:18px;padding:7px 11px;border-radius:20px;background:rgba(6,91,171,.07);color:var(--primary);font-size:10px;font-weight:900}
+.brand-chip i{width:7px;height:7px;background:#42b72a;border-radius:50%;box-shadow:0 0 0 4px rgba(66,183,42,.10)}
+.ui-icon{width:20px;height:20px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.spin{animation:loginSpin .85s linear infinite}@keyframes loginSpin{to{transform:rotate(360deg)}}
+.theme-toggle .ui-icon{width:20px;height:20px}
+.login-btn .ui-icon{width:19px;height:19px}
+@media(max-width:900px){
+ .login-shell{grid-template-columns:1fr}.visual-side{display:none}.login-form-side{box-shadow:none;padding:34px 22px}.form-wrap{max-width:440px}.logo-wrap{margin-bottom:32px}
+}
+@media(max-width:480px){
+ .welcome-back-tag{font-size:22px}.welcome p{font-size:12px}.login-form{gap:18px}.login-form-side{padding:28px 18px}
+ .lang-toggle{right:auto;left:24px;top:76px}html[dir="ltr"] .lang-toggle{left:24px}
+}
+
+/* Glass stat strip — adds credible, concrete detail to the visual side */
+.glass-stats{display:flex;flex-direction:column;gap:12px;margin-top:22px;padding-top:20px;border-top:1px solid rgba(11,61,145,.12)}
+.glass-stat{display:flex;align-items:center;gap:12px}
+.glass-stat svg{width:19px;height:19px;flex:0 0 19px;padding:8px;box-sizing:content-box;border-radius:11px;background:rgba(11,61,145,.09);color:var(--primary);fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.glass-stat div{display:flex;flex-direction:column;min-width:0}
+.glass-stat strong{font-size:12.5px;font-weight:800;color:var(--text)}
+.glass-stat span{font-size:10.5px;color:var(--muted);margin-top:1px}
+html[data-theme="dark"] .glass-stat svg{background:rgba(46,143,239,.16)}
+html[data-theme="dark"] .glass-stats{border-top-color:rgba(255,255,255,.08)}
+
+/* Slightly richer visual-side atmosphere + subtle float on the glass card */
+.glass{transition:transform .3s ease}
+@keyframes floatY{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.node{animation:floatY 7s ease-in-out infinite}
+.node.n2{animation-delay:.8s}.node.n3{animation-delay:1.6s}.node.n4{animation-delay:2.4s}
+@media (prefers-reduced-motion: reduce){.node{animation:none}}
+
+/* Login form card gets a touch more corporate polish */
+.login-form-side{box-shadow:16px 0 46px rgba(11,61,145,.07)}
+.logo-wrap img{filter:drop-shadow(0 2px 6px rgba(11,61,145,.08))}
