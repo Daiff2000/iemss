@@ -105,14 +105,29 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         special_deductions=excluded.special_deductions
     `);
     const deleteDaily = db.prepare('DELETE FROM stage_daily WHERE employee_id = ?');
-    // Upsert daily records so multi-file imports (e.g. Shift A + Shift B)
-    // cannot overwrite each other when an employee/date appears in more than one workbook.
-    const insertDaily = db.prepare(`
-      INSERT INTO stage_daily (employee_id, stage, entry_date, value_num, value_text)
-      VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(employee_id, stage, entry_date) DO UPDATE SET
-        value_num=excluded.value_num, value_text=excluded.value_text
-    `);
+    // Daily rows can be tens of thousands for a single workbook. Sending one
+    // INSERT statement per cell/day is far too slow on serverless PostgreSQL
+    // and can hit the database statement timeout. We collect rows and write
+    // them in batches below (500 rows/query).
+    async function insertDailyBatch(rows) {
+      if (!rows.length) return;
+      const CHUNK = 500;
+      for (let start = 0; start < rows.length; start += CHUNK) {
+        const chunk = rows.slice(start, start + CHUNK);
+        const values = [];
+        const placeholders = chunk.map((r, i) => {
+          const n = i * 5;
+          values.push(r[0], r[1], r[2], r[3], r[4]);
+          return `($${n + 1},$${n + 2},$${n + 3},$${n + 4},$${n + 5})`;
+        }).join(',');
+        await db.query(`
+          INSERT INTO stage_daily (employee_id, stage, entry_date, value_num, value_text)
+          VALUES ${placeholders}
+          ON CONFLICT(employee_id, stage, entry_date) DO UPDATE SET
+            value_num=excluded.value_num, value_text=excluded.value_text
+        `, values);
+      }
+    }
 
     const deleteSupervisorTargets = db.prepare('DELETE FROM supervisor_targets');
     const insertSupervisorTarget = db.prepare(`
@@ -164,13 +179,15 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         }
 
         if (!merge) (await deleteDaily.run(emp.id));
+        const dailyRows = [];
         for (const stage of emp.stages) {
           for (const [date, value] of Object.entries(stage.daily)) {
             const numeric = typeof value === 'number' && Number.isFinite(value);
-            (await insertDaily.run(emp.id, stage.role, date, numeric ? value : null, numeric ? null : String(value)));
-            daily++;
+            dailyRows.push([emp.id, stage.role, date, numeric ? value : null, numeric ? null : String(value)]);
           }
         }
+        await insertDailyBatch(dailyRows);
+        daily += dailyRows.length;
 
         (await insertSummary.run(
           emp.id,

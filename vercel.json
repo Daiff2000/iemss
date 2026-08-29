@@ -3,33 +3,7 @@
   "services": {
     "frontend": {
       "root": "frontend",
-      "framework": "vite",
-      "rewrites": [
-        {
-          "source": "/home.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/dashboard.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/admin-employees.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/admin-import.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/admin-manual-entry.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/reports.html",
-          "destination": "/index.html"
-        }
-      ]
+      "framework": "vite"
     },
     "backend": {
       "root": "backend",
