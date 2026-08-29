@@ -64,81 +64,16 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
     const parsed = parseMasterWorkbook(buffer);
     const employees = parsed.employees;
 
-    const findEmp = db.prepare('SELECT id, password_hash, role FROM employees WHERE id = ?');
-    const findByName = db.prepare("SELECT id, password_hash, role FROM employees WHERE name = ? ORDER BY id LIMIT 1");
-    const insertEmp = db.prepare(`
-      INSERT INTO employees
-      (id, emp_num, name, education, residence, company, shift, department, password_hash, role, must_change_password)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'employee', 0)
-    `);
-    const updateEmp = db.prepare(`
-      UPDATE employees
-      SET emp_num = ?, name = ?, education = ?, residence = ?, company = ?, shift = ?, department = ?
-      WHERE id = ? AND role = 'employee'
-    `);
-    const insertSummary = db.prepare(`
-      INSERT INTO employee_summary
-      (employee_id, total_achievement, total_target, percentage, bonus_tier, unauthorized_absence, total_absence, work_nature_allowance,
-       monthly_target, total_present_days, total_absence_days, casual_leave, leave_with_permission, leave_without_permission,
-       sick_leave, late_days, late_hours, overtime_days, overtime_hours, special_bonus_days, special_deductions)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(employee_id) DO UPDATE SET
-        total_achievement=excluded.total_achievement,
-        total_target=excluded.total_target,
-        percentage=excluded.percentage,
-        bonus_tier=excluded.bonus_tier,
-        unauthorized_absence=excluded.unauthorized_absence,
-        total_absence=excluded.total_absence,
-        work_nature_allowance=excluded.work_nature_allowance,
-        monthly_target=excluded.monthly_target,
-        total_present_days=excluded.total_present_days,
-        total_absence_days=excluded.total_absence_days,
-        casual_leave=excluded.casual_leave,
-        leave_with_permission=excluded.leave_with_permission,
-        leave_without_permission=excluded.leave_without_permission,
-        sick_leave=excluded.sick_leave,
-        late_days=excluded.late_days,
-        late_hours=excluded.late_hours,
-        overtime_days=excluded.overtime_days,
-        overtime_hours=excluded.overtime_hours,
-        special_bonus_days=excluded.special_bonus_days,
-        special_deductions=excluded.special_deductions
-    `);
-    const deleteDaily = db.prepare('DELETE FROM stage_daily WHERE employee_id = ?');
-    // Daily rows can be tens of thousands for a single workbook. Sending one
-    // INSERT statement per cell/day is far too slow on serverless PostgreSQL
-    // and can hit the database statement timeout. We collect rows and write
-    // them in batches below (500 rows/query).
-    async function insertDailyBatch(rows) {
-      if (!rows.length) return;
-      const CHUNK = 500;
-      for (let start = 0; start < rows.length; start += CHUNK) {
-        const chunk = rows.slice(start, start + CHUNK);
-        const values = [];
-        const placeholders = chunk.map((r, i) => {
-          const n = i * 5;
-          values.push(r[0], r[1], r[2], r[3], r[4]);
-          return `($${n + 1},$${n + 2},$${n + 3},$${n + 4},$${n + 5})`;
-        }).join(',');
-        await db.query(`
-          INSERT INTO stage_daily (employee_id, stage, entry_date, value_num, value_text)
-          VALUES ${placeholders}
-          ON CONFLICT(employee_id, stage, entry_date) DO UPDATE SET
-            value_num=excluded.value_num, value_text=excluded.value_text
-        `, values);
-      }
+    // Bulk-insert/update helper: splits `rows` into chunks and issues ONE
+    // round-trip per chunk via `unnest(...)` instead of one round-trip per row.
+    // This is the difference between ~30,000 sequential DB calls (which is
+    // what made big sheets time out / hang the site) and a handful of calls.
+    const CHUNK = 2000;
+    function chunks(arr, size) {
+      const out = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
     }
-
-    const deleteSupervisorTargets = db.prepare('DELETE FROM supervisor_targets');
-    const insertSupervisorTarget = db.prepare(`
-      INSERT INTO supervisor_targets (employee_id, supervisor_name, section, entry_date, target_daily, target_monthly, metrics_json)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(section, supervisor_name, entry_date) DO UPDATE SET
-        employee_id=excluded.employee_id,
-        target_daily=excluded.target_daily,
-        target_monthly=excluded.target_monthly,
-        metrics_json=excluded.metrics_json
-    `);
 
     const masterIds = new Set();
 
@@ -151,88 +86,155 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
       const updatedEmployees = [];
       const createdEmployees = [];
 
+      // 1) Resolve every row against the current employees table in ONE query
+      // instead of one SELECT per row.
+      const allEmployeesForLookup = await db.prepare('SELECT id, name, role FROM employees').all();
+      const byId = new Map(allEmployeesForLookup.map(e => [e.id, e]));
+      const byName = new Map();
+      for (const e of allEmployeesForLookup) if (!byName.has(e.name)) byName.set(e.name, e);
+
+      const toInsert = []; // {id, emp_num, name, education, residence, company, shift, department, hash}
+      const toUpdate = []; // {id, emp_num, name, education, residence, company, shift, department}
+      const validRows = []; // rows that will get daily/summary data written
+
       for (const emp of rows) {
         if (!emp.id || emp.id === 0 || !emp.name) { skipped++; continue; }
 
-        const existing = emp.generatedId ? (await findByName.get(emp.name)) : (await findEmp.get(emp.id));
+        const existing = emp.generatedId ? byName.get(emp.name) : byId.get(emp.id);
         if (existing && emp.generatedId) emp.id = existing.id;
         if (existing && existing.role !== 'employee') { skipped++; continue; }
 
         masterIds.add(emp.id);
+        validRows.push(emp);
 
         if (!existing) {
           const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
-          (await insertEmp.run(
-            emp.id, emp.emp_num || emp.id, emp.name, emp.education, emp.residence,
-            emp.company, emp.shift, emp.department, hash
-          ));
+          toInsert.push({ id: emp.id, emp_num: emp.emp_num || emp.id, name: emp.name, education: emp.education, residence: emp.residence, company: emp.company, shift: emp.shift, department: emp.department, hash });
           created++;
           createdEmployees.push({ id: emp.id, name: emp.name });
           newCredentials.push({ id: emp.id, name: emp.name, password: DEFAULT_PASSWORD });
         } else {
-          (await updateEmp.run(
-            emp.emp_num || emp.id, emp.name, emp.education, emp.residence,
-            emp.company, emp.shift, emp.department, emp.id
-          ));
+          toUpdate.push({ id: emp.id, emp_num: emp.emp_num || emp.id, name: emp.name, education: emp.education, residence: emp.residence, company: emp.company, shift: emp.shift, department: emp.department });
           updated++;
           updatedEmployees.push({ id: emp.id, name: emp.name });
         }
+      }
 
-        if (!merge) (await deleteDaily.run(emp.id));
-        const dailyRows = [];
+      // 2) Bulk insert new employees.
+      for (const batch of chunks(toInsert, CHUNK)) {
+        if (!batch.length) continue;
+        await db.query(
+          `INSERT INTO employees (id, emp_num, name, education, residence, company, shift, department, password_hash, role, must_change_password)
+           SELECT id, emp_num, name, education, residence, company, shift, department, password_hash, 'employee', 0
+           FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[])
+             AS t(id, emp_num, name, education, residence, company, shift, department, password_hash)`,
+          [
+            batch.map(e => e.id), batch.map(e => String(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
+            batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.department),
+            batch.map(e => e.hash),
+          ]
+        );
+      }
+
+      // 3) Bulk update existing employees.
+      for (const batch of chunks(toUpdate, CHUNK)) {
+        if (!batch.length) continue;
+        await db.query(
+          `UPDATE employees AS e SET emp_num = t.emp_num, name = t.name, education = t.education, residence = t.residence,
+             company = t.company, shift = t.shift, department = t.department
+           FROM unnest($1::int[], $2::text[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
+             AS t(id, emp_num, name, education, residence, company, shift, department)
+           WHERE e.id = t.id AND e.role = 'employee'`,
+          [
+            batch.map(e => e.id), batch.map(e => String(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
+            batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.department),
+          ]
+        );
+      }
+
+      // 4) Bulk delete existing daily rows for a full (non-merge) re-import,
+      // in ONE statement instead of one DELETE per employee.
+      if (!merge && validRows.length) {
+        await db.query('DELETE FROM stage_daily WHERE employee_id = ANY($1::int[])', [validRows.map(e => e.id)]);
+      }
+
+      // 5) Flatten every employee/stage/date cell into flat arrays and bulk
+      // upsert them. This is the big win: a sheet with, say, 300 employees x
+      // 6 stages x 30 days is ~54,000 cells — previously 54,000 awaited round
+      // trips, now a handful of chunked bulk statements.
+      const dEmp = [], dStage = [], dDate = [], dNum = [], dText = [];
+      for (const emp of validRows) {
         for (const stage of emp.stages) {
           for (const [date, value] of Object.entries(stage.daily)) {
             const numeric = typeof value === 'number' && Number.isFinite(value);
-            dailyRows.push([emp.id, stage.role, date, numeric ? value : null, numeric ? null : String(value)]);
+            dEmp.push(emp.id); dStage.push(stage.role); dDate.push(date);
+            dNum.push(numeric ? value : null);
+            dText.push(numeric ? null : String(value));
+            daily++;
           }
         }
-        await insertDailyBatch(dailyRows);
-        daily += dailyRows.length;
-
-        (await insertSummary.run(
-          emp.id,
-          emp.summary.total_achievement,
-          emp.summary.total_target,
-          emp.summary.percentage,
-          emp.summary.bonus_tier,
-          emp.summary.unauthorized_absence,
-          emp.summary.total_absence,
-          emp.summary.work_nature_allowance,
-          emp.summary.monthly_target,
-          emp.summary.total_present_days,
-          emp.summary.total_absence_days,
-          emp.summary.casual_leave,
-          emp.summary.leave_with_permission,
-          emp.summary.leave_without_permission,
-          emp.summary.sick_leave,
-          emp.summary.late_days,
-          emp.summary.late_hours,
-          emp.summary.overtime_days,
-          emp.summary.overtime_hours,
-          emp.summary.special_bonus_days,
-          emp.summary.special_deductions
-        ));
       }
+      for (let i = 0; i < dEmp.length; i += CHUNK) {
+        const end = Math.min(i + CHUNK, dEmp.length);
+        await db.query(
+          `INSERT INTO stage_daily (employee_id, stage, entry_date, value_num, value_text)
+           SELECT * FROM unnest($1::int[], $2::text[], $3::date[], $4::float8[], $5::text[])
+           ON CONFLICT (employee_id, stage, entry_date) DO UPDATE SET
+             value_num = excluded.value_num, value_text = excluded.value_text`,
+          [dEmp.slice(i, end), dStage.slice(i, end), dDate.slice(i, end), dNum.slice(i, end), dText.slice(i, end)]
+        );
+      }
+
+      // 6) Bulk upsert summaries.
+      const sCols = ['total_achievement', 'total_target', 'percentage', 'bonus_tier', 'unauthorized_absence', 'total_absence',
+        'work_nature_allowance', 'monthly_target', 'total_present_days', 'total_absence_days', 'casual_leave',
+        'leave_with_permission', 'leave_without_permission', 'sick_leave', 'late_days', 'late_hours', 'overtime_days',
+        'overtime_hours', 'special_bonus_days', 'special_deductions'];
+      for (const batch of chunks(validRows, CHUNK)) {
+        if (!batch.length) continue;
+        const arrs = [batch.map(e => e.id), ...sCols.map(c => batch.map(e => e.summary[c]))];
+        const unnestTypes = ['int', ...sCols.map(() => 'float8')];
+        const unnestSql = arrs.map((_, i) => `$${i + 1}::${unnestTypes[i]}[]`).join(', ');
+        await db.query(
+          `INSERT INTO employee_summary (employee_id, ${sCols.join(', ')})
+           SELECT * FROM unnest(${unnestSql}) AS t(employee_id, ${sCols.join(', ')})
+           ON CONFLICT (employee_id) DO UPDATE SET
+             ${sCols.map(c => `${c} = excluded.${c}`).join(', ')}`,
+          arrs
+        );
+      }
+
       // Match supervisor-target rows. In a multi-file import we merge blocks
       // from all files instead of deleting the rows uploaded by the previous file.
       let supervisorLinked = 0;
       let supervisorUnmatched = 0;
-      const allEmployeesNow = (await db.prepare("SELECT id, name FROM employees WHERE role = 'employee'").all());
+      const allEmployeesNow = await db.prepare("SELECT id, name FROM employees WHERE role = 'employee'").all();
       const nameIndex = new Map();
       for (const e of allEmployeesNow) nameIndex.set(normalizeArabicName(e.name), e.id);
-      if (!merge) (await deleteSupervisorTargets.run());
-      for (const rec of parsed.supervisorTargets || []) {
+      if (!merge) await db.query('DELETE FROM supervisor_targets');
+
+      const supervisorRecs = parsed.supervisorTargets || [];
+      const tEmp = [], tName = [], tSection = [], tDate = [], tDaily = [], tMonthly = [], tMetrics = [];
+      for (const rec of supervisorRecs) {
         const empId = matchSupervisorName(rec.supervisorName, nameIndex, allEmployeesNow);
         if (empId) supervisorLinked++; else supervisorUnmatched++;
-        (await insertSupervisorTarget.run(
-          empId,
-          rec.supervisorName,
-          rec.section,
-          rec.entryDate,
-          rec.targetDaily,
-          rec.targetMonthly,
-          JSON.stringify(rec.metrics || {})
-        ));
+        tEmp.push(empId); tName.push(rec.supervisorName); tSection.push(rec.section); tDate.push(rec.entryDate);
+        tDaily.push(rec.targetDaily); tMonthly.push(rec.targetMonthly); tMetrics.push(JSON.stringify(rec.metrics || {}));
+      }
+      for (let i = 0; i < tEmp.length; i += CHUNK) {
+        const end = Math.min(i + CHUNK, tEmp.length);
+        await db.query(
+          `INSERT INTO supervisor_targets (employee_id, supervisor_name, section, entry_date, target_daily, target_monthly, metrics_json)
+           SELECT employee_id, supervisor_name, section, entry_date, target_daily, target_monthly, metrics_json::jsonb
+           FROM unnest($1::int[], $2::text[], $3::text[], $4::date[], $5::float8[], $6::float8[], $7::text[])
+             AS t(employee_id, supervisor_name, section, entry_date, target_daily, target_monthly, metrics_json)
+           ON CONFLICT (section, supervisor_name, entry_date) DO UPDATE SET
+             employee_id = excluded.employee_id,
+             target_daily = excluded.target_daily,
+             target_monthly = excluded.target_monthly,
+             metrics_json = excluded.metrics_json`,
+          [tEmp.slice(i, end), tName.slice(i, end), tSection.slice(i, end), tDate.slice(i, end), tDaily.slice(i, end), tMonthly.slice(i, end), tMetrics.slice(i, end)]
+        );
       }
 
       return { created, updated, daily, skipped, newCredentials, updatedEmployees, createdEmployees, supervisorLinked, supervisorUnmatched };
@@ -273,31 +275,23 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         employees.map(e => e.shift).filter(Boolean)
       );
 
-      const setStatus = db.prepare('UPDATE employees SET status = ? WHERE id = ?');
+      // Classify everyone in JS first (no DB calls), then apply the three
+      // groups with ONE bulk UPDATE each instead of one UPDATE per employee.
+      const activeIds = [], leftIds = [], archiveIds = [];
+      for (const e of allEmployeesNow2) {
+        if (masterIds.has(e.id)) activeIds.push(e.id);
+        else if (leaverIds.has(e.id)) leftIds.push(e.id);
+        else if (importShifts.has(e.shift)) archiveIds.push(e.id);
+        // else: different shift, not covered by this file -> leave untouched.
+      }
+      statusActive = activeIds.length;
+      statusLeft = leftIds.length;
+      statusArchive = archiveIds.length;
+
       const setStatusTx = db.transaction(async () => {
-        for (const e of allEmployeesNow2) {
-          let status;
-
-          if (masterIds.has(e.id)) {
-            status = 'active';
-          } else if (leaverIds.has(e.id)) {
-            status = 'left';
-          } else if (importShifts.has(e.shift)) {
-            // Belongs to a shift covered by this file but wasn't found in
-            // it and isn't in the leavers sheet either -> genuinely archived.
-            status = 'archive';
-          } else {
-            // Different shift, not covered by this file at all -> leave
-            // their existing status exactly as it was.
-            continue;
-          }
-
-          if (status === 'active') statusActive++;
-          else if (status === 'left') statusLeft++;
-          else statusArchive++;
-
-          (await setStatus.run(status, e.id));
-        }
+        if (activeIds.length) await db.query("UPDATE employees SET status = 'active' WHERE id = ANY($1::int[])", [activeIds]);
+        if (leftIds.length) await db.query("UPDATE employees SET status = 'left' WHERE id = ANY($1::int[])", [leftIds]);
+        if (archiveIds.length) await db.query("UPDATE employees SET status = 'archive' WHERE id = ANY($1::int[])", [archiveIds]);
       });
       await setStatusTx();
     } catch (e) {
@@ -652,16 +646,32 @@ router.post('/manual/daily-batch', requireAuth, requireAdmin, async (req, res) =
   if (!Array.isArray(entries) || !entries.length) return res.status(400).json({ error: 'لا يوجد بيانات لحفظها.' });
 
   const validEmpIds = new Set((await db.prepare("SELECT id FROM employees WHERE role = 'employee'").all()).map(e => e.id));
+  const stageName = String(stage).trim();
   const tx = db.transaction(async (rows) => {
     let saved = 0, skipped = 0;
+    const empIds = [], dates = [], nums = [], texts = [];
     for (const row of rows) {
       const empId = Number(row.employee_id);
       if (!Number.isInteger(empId) || !validEmpIds.has(empId) || !row.entry_date || !/^\d{4}-\d{2}-\d{2}$/.test(row.entry_date)) { skipped++; continue; }
       const value = row.value;
-      const numeric = value !== '' && value !== null && value !== undefined && Number.isFinite(Number(value));
       if (value === '' || value === null || value === undefined) { skipped++; continue; }
-      (await upsertDaily.run(empId, String(stage).trim(), row.entry_date, numeric ? Number(value) : null, numeric ? null : String(value)));
+      const numeric = Number.isFinite(Number(value));
+      empIds.push(empId); dates.push(row.entry_date);
+      nums.push(numeric ? Number(value) : null);
+      texts.push(numeric ? null : String(value));
       saved++;
+    }
+    // One bulk statement instead of one INSERT per grid cell.
+    for (let i = 0; i < empIds.length; i += 2000) {
+      const end = Math.min(i + 2000, empIds.length);
+      const chunkLen = end - i;
+      await db.query(
+        `INSERT INTO stage_daily (employee_id, stage, entry_date, value_num, value_text)
+         SELECT * FROM unnest($1::int[], $2::text[], $3::date[], $4::float8[], $5::text[])
+         ON CONFLICT (employee_id, stage, entry_date) DO UPDATE SET
+           value_num = excluded.value_num, value_text = excluded.value_text`,
+        [empIds.slice(i, end), new Array(chunkLen).fill(stageName), dates.slice(i, end), nums.slice(i, end), texts.slice(i, end)]
+      );
     }
     return { saved, skipped };
   });
