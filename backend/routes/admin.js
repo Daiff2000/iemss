@@ -88,14 +88,21 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
 
       // 1) Resolve every row against the current employees table in ONE query
       // instead of one SELECT per row.
-      const allEmployeesForLookup = await db.prepare('SELECT id, name, role FROM employees').all();
+      const allEmployeesForLookup = await db.prepare('SELECT id, name, role, shift, target_shift FROM employees').all();
       const byId = new Map(allEmployeesForLookup.map(e => [e.id, e]));
       const byName = new Map();
       for (const e of allEmployeesForLookup) if (!byName.has(e.name)) byName.set(e.name, e);
 
-      const toInsert = []; // {id, emp_num, name, education, residence, company, shift, department, hash}
-      const toUpdate = []; // {id, emp_num, name, education, residence, company, shift, department}
+      const toInsert = []; // {id, emp_num, name, education, residence, company, shift, target_shift, department, hash}
+      const toUpdate = []; // {id, emp_num, name, education, residence, company, shift, target_shift, department}
       const validRows = []; // rows that will get daily/summary data written
+      const promotedFromOther = new Set();
+      const PRIMARY_SHIFTS = new Set(['A', 'B', 'C']);
+      const shiftRank = { A: 1, B: 2, C: 3 };
+      const canonicalShift = value => {
+        const v = String(value || '').trim().toUpperCase();
+        return PRIMARY_SHIFTS.has(v) ? v : 'Other';
+      };
 
       for (const emp of rows) {
         if (!emp.id || emp.id === 0 || !emp.name) { skipped++; continue; }
@@ -104,33 +111,84 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         if (existing && emp.generatedId) emp.id = existing.id;
         if (existing && existing.role !== 'employee') { skipped++; continue; }
 
+        const incomingShift = canonicalShift(emp.shift);
+        const existingTarget = existing ? canonicalShift(existing.target_shift || existing.shift) : null;
+        let targetShift = existingTarget || incomingShift;
+        let useRow = true;
+        let profileShift = incomingShift;
+
+        if (existing && incomingShift === 'Other' && PRIMARY_SHIFTS.has(existingTarget)) {
+          // Other is only a secondary copy. Never let it replace the employee's
+          // real A/B/C shift, profile data, KPIs, or daily records.
+          useRow = false;
+          targetShift = existingTarget;
+          skipped++;
+        } else if (incomingShift !== 'Other' && PRIMARY_SHIFTS.has(incomingShift)) {
+          if (!existing) {
+            targetShift = incomingShift;
+          } else if (!PRIMARY_SHIFTS.has(existingTarget)) {
+            targetShift = incomingShift;
+            promotedFromOther.add(emp.id);
+          } else if (incomingShift !== existingTarget) {
+            // If the same employee is present in two primary shifts, keep the
+            // deterministic highest-priority primary shift: A > B > C.
+            if (shiftRank[incomingShift] < shiftRank[existingTarget]) {
+              targetShift = incomingShift;
+              promotedFromOther.add(emp.id);
+            } else {
+              useRow = false;
+              targetShift = existingTarget;
+              skipped++;
+            }
+          }
+          profileShift = targetShift;
+        } else {
+          targetShift = existing ? existingTarget : 'Other';
+          profileShift = targetShift;
+        }
+
+        if (!useRow) {
+          if (existing) masterIds.add(existing.id);
+          continue;
+        }
+
+        emp.shift = profileShift;
+        emp.target_shift = targetShift;
         masterIds.add(emp.id);
         validRows.push(emp);
 
         if (!existing) {
           const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
-          toInsert.push({ id: emp.id, emp_num: emp.emp_num || emp.id, name: emp.name, education: emp.education, residence: emp.residence, company: emp.company, shift: emp.shift, department: emp.department, hash });
+          toInsert.push({ id: emp.id, emp_num: emp.emp_num || emp.id, name: emp.name, education: emp.education, residence: emp.residence, company: emp.company, shift: profileShift, target_shift: targetShift, department: emp.department, hash });
           created++;
           createdEmployees.push({ id: emp.id, name: emp.name });
           newCredentials.push({ id: emp.id, name: emp.name, password: DEFAULT_PASSWORD });
         } else {
-          toUpdate.push({ id: emp.id, emp_num: emp.emp_num || emp.id, name: emp.name, education: emp.education, residence: emp.residence, company: emp.company, shift: emp.shift, department: emp.department });
+          toUpdate.push({ id: emp.id, emp_num: emp.emp_num || emp.id, name: emp.name, education: emp.education, residence: emp.residence, company: emp.company, shift: profileShift, target_shift: targetShift, department: emp.department });
           updated++;
           updatedEmployees.push({ id: emp.id, name: emp.name });
         }
+      }
+
+      // When an employee is promoted from Other to a real A/B/C shift, remove
+      // the secondary copy before writing the primary data. This prevents old
+      // Other rows from surviving a later primary-shift import.
+      if (promotedFromOther.size) {
+        await db.query('DELETE FROM stage_daily WHERE employee_id = ANY($1::int[])', [[...promotedFromOther]]);
+        await db.query('DELETE FROM employee_summary WHERE employee_id = ANY($1::int[])', [[...promotedFromOther]]);
       }
 
       // 2) Bulk insert new employees.
       for (const batch of chunks(toInsert, CHUNK)) {
         if (!batch.length) continue;
         await db.query(
-          `INSERT INTO employees (id, emp_num, name, education, residence, company, shift, department, password_hash, role, must_change_password)
-           SELECT id, emp_num, name, education, residence, company, shift, department, password_hash, 'employee', false
-           FROM unnest($1::int[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[])
-             AS t(id, emp_num, name, education, residence, company, shift, department, password_hash)`,
+          `INSERT INTO employees (id, emp_num, name, education, residence, company, shift, target_shift, department, password_hash, role, must_change_password)
+           SELECT id, emp_num, name, education, residence, company, shift, target_shift, department, password_hash, 'employee', false
+           FROM unnest($1::int[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[], $10::text[])
+             AS t(id, emp_num, name, education, residence, company, shift, target_shift, department, password_hash)`,
           [
             batch.map(e => e.id), batch.map(e => Number(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
-            batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.department),
+            batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.target_shift), batch.map(e => e.department),
             batch.map(e => e.hash),
           ]
         );
@@ -141,13 +199,13 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         if (!batch.length) continue;
         await db.query(
           `UPDATE employees AS e SET emp_num = t.emp_num, name = t.name, education = t.education, residence = t.residence,
-             company = t.company, shift = t.shift, department = t.department
-           FROM unnest($1::int[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[])
-             AS t(id, emp_num, name, education, residence, company, shift, department)
+             company = t.company, shift = t.shift, target_shift = t.target_shift, department = t.department
+           FROM unnest($1::int[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[])
+             AS t(id, emp_num, name, education, residence, company, shift, target_shift, department)
            WHERE e.id = t.id AND e.role = 'employee'`,
           [
             batch.map(e => e.id), batch.map(e => Number(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
-            batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.department),
+            batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.target_shift), batch.map(e => e.department),
           ]
         );
       }

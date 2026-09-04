@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS employees (
   residence TEXT,
   company TEXT,
   shift TEXT,
+  target_shift TEXT,
   department TEXT,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'employee',

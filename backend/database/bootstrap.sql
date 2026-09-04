@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS employees (
   residence TEXT,
   company TEXT,
   shift TEXT,
+  target_shift TEXT,
   department TEXT,
   password_hash TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'employee',
@@ -13,6 +14,14 @@ CREATE TABLE IF NOT EXISTS employees (
   status TEXT NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Backward-compatible migration for existing PostgreSQL databases.
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS target_shift TEXT;
+UPDATE employees SET target_shift = CASE
+  WHEN UPPER(TRIM(COALESCE(shift,''))) IN ('A','B','C') THEN UPPER(TRIM(shift))
+  ELSE 'Other'
+END
+WHERE target_shift IS NULL OR TRIM(target_shift) = '';
 
 CREATE TABLE IF NOT EXISTS employee_summary (
   employee_id INTEGER PRIMARY KEY REFERENCES employees(id) ON DELETE CASCADE,
@@ -10127,3 +10136,10 @@ INSERT INTO login_audit (employee_id,success,ip,ts) VALUES
 (0,1,'::1','2026-08-29 18:37:01')
 ON CONFLICT DO NOTHING;
 UPDATE employees SET role='supervisor' WHERE role='uploader';
+
+-- Normalize target shift after seed/import data is present.
+UPDATE employees SET target_shift = CASE
+  WHEN UPPER(TRIM(COALESCE(shift,''))) IN ('A','B','C') THEN UPPER(TRIM(shift))
+  ELSE 'Other'
+END
+WHERE target_shift IS NULL OR TRIM(target_shift) = '';

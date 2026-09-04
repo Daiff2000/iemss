@@ -253,7 +253,7 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 
   const emp = (await db.prepare(`
-    SELECT id, emp_num, name, education, residence, company, shift, department
+    SELECT id, emp_num, name, education, residence, company, shift, target_shift, department
     FROM employees WHERE id = ? AND role = 'employee'
   `).get(targetId));
   if (!emp) return res.status(404).json({ error: 'الموظف غير موجود' });

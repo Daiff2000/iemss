@@ -431,6 +431,14 @@ async function loadSelfView(dashData) {
       ).join('');
     }
 
+    const targetShift = String(emp.target_shift || emp.shift || 'Other').trim().toUpperCase();
+    const targetShiftLabel = ['A','B','C'].includes(targetShift) ? targetShift : 'Other';
+    const targetShiftBanner = $('target-shift-banner');
+    if (targetShiftBanner) {
+      targetShiftBanner.style.display = 'flex';
+      targetShiftBanner.innerHTML = `<div class="target-shift-icon">⇄</div><div><span class="target-shift-eyebrow">Target Shift · الشيفت الأساسي</span><strong>${escapeHtml(targetShiftLabel)}</strong><small>${targetShiftLabel === 'Other' ? 'لا يوجد شيفت أساسي A / B / C لهذا الموظف' : 'بيانات الموظف والـ KPIs يتم اعتمادها من هذا الشيفت'}</small></div>`;
+    }
+
     $('emp-info-card').innerHTML = `
       <div class="info-item"><span>الاسم</span><b>${escapeHtml(emp.name)}</b></div>
       <div class="info-item"><span>ID</span><b>${escapeHtml(emp.id)}</b></div>
