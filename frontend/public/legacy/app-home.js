@@ -401,6 +401,34 @@ async function loadSelfView(dashData) {
         </div>
       </div>`;
 
+    // Render the employee information and performance cards.
+    // Keep these tied to the canonical employee/summary record, while the
+    // daily section below may show multiple shift snapshots independently.
+    if ($('emp-info-card')) {
+      $('emp-info-card').innerHTML = `
+        <div class="info-item"><span>الاسم</span><b>${escapeHtml(emp.name)}</b></div>
+        <div class="info-item"><span>ID</span><b>${escapeHtml(emp.id)}</b></div>
+        <div class="info-item"><span>الشركة</span><b>${escapeHtml(emp.company || '—')}</b></div>
+        <div class="info-item"><span>الشيفت</span><b>${escapeHtml(emp.shift || emp.target_shift || '—')}</b></div>
+        <div class="info-item"><span>القسم</span><b>${escapeHtml(emp.department || '—')}</b></div>
+        <div class="info-item"><span>الفئة</span><b>${escapeHtml(emp.education || '—')}</b></div>`;
+    }
+
+    if ($('emp-perf-card')) {
+      $('emp-perf-card').innerHTML = `
+        <div class="info-item"><span>نسبة التارجت</span><b class="accent-value">${fmtPercent(s.percentage)}</b></div>
+        <div class="info-item"><span>أيام الحضور</span><b class="accent-value">${fmtAttendanceNumber(s.total_present_days ?? a.present_days)}</b></div>
+        <div class="info-item"><span>رقم الشريحة</span><b>${escapeHtml(s.bonus_tier ?? '—')}</b></div>
+        <div class="info-item"><span>إجمالي طبيعة العمل</span><b>${fmtNumber(s.work_nature_allowance)}</b></div>
+        <div class="info-item"><span>إجمالي الغياب</span><b class="danger-value">${fmtNumber(s.total_absence)}</b></div>
+        <div class="info-item"><span>إجازة عارضة</span><b>${fmtNumber(s.casual_leave)}</b></div>
+        <div class="info-item"><span>إجازة بإذن</span><b>${fmtNumber(s.leave_with_permission)}</b></div>
+        <div class="info-item"><span>إجازة بدون إذن</span><b class="danger-value">${fmtNumber(s.leave_without_permission ?? s.unauthorized_absence)}</b></div>
+        <div class="info-item"><span>إجازة مرضي</span><b>${fmtNumber(s.sick_leave)}</b></div>
+        <div class="info-item"><span>إجمالي ساعات التأخيرات</span><b class="danger-value">${fmtHours(s.late_hours)}</b></div>
+        <div class="info-item"><span>إجمالي ساعات الإضافي</span><b class="accent-value">${fmtHours(s.overtime_hours)}</b></div>`;
+    }
+
     // The monthly target is shown once, in the performance card.
     // Supervisor monthly percentages are added to it for the final monthly target.
     const supervisorSections = data.supervisorTargets || {};

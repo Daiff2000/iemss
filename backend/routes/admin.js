@@ -137,7 +137,7 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
             promotedFromOther.add(emp.id);
           } else if (incomingShift !== existingTarget) {
             // If the same employee is present in two primary shifts, keep the
-            // deterministic highest-priority primary shift: A > B > C.
+            // deterministic highest-priority primary shift: A > B > C > D.
             if (shiftRank[incomingShift] < shiftRank[existingTarget]) {
               targetShift = incomingShift;
               promotedFromOther.add(emp.id);
