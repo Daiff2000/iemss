@@ -1,0 +1,86 @@
+<div class="login-shell">
+
+  <section class="login-form-side">
+    <button class="theme-toggle" id="theme-toggle" type="button" data-i18n-aria="topbar.theme">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="theme-icon" class="ui-icon" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path></svg>
+    </button>
+    <div class="form-wrap">
+      <div class="logo-wrap">
+        <img src="/logo.png" alt="Intercom IEMS" class="login-logo logo-light" id="login-logo">
+        <img src="/logo-dark.png" alt="Intercom IEMS" class="login-logo logo-dark" id="login-logo-dark">
+      </div>
+
+      <div class="welcome">
+        <h1 class="welcome-back-tag" data-i18n="login.welcomeBack">أهلاً بعودتك</h1>
+        <p data-i18n="login.subtitle">يرجى إدخال بيانات الدخول الخاصة بك للوصول إلى حسابك.</p>
+      </div>
+
+      <div class="login-form">
+        <div class="field">
+          <label for="login-id" data-i18n="login.idLabel">معرّف المستخدم</label>
+          <div class="input-box">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <input id="login-id" name="userId" inputmode="numeric" data-i18n-placeholder="login.idPlaceholder" placeholder="أدخل معرّف المستخدم" autocomplete="username">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="login-pass" data-i18n="login.passLabel">كلمة المرور</label>
+          <div class="input-box">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            <input id="login-pass" name="password" dir="rtl" type="password" data-i18n-placeholder="login.passPlaceholder" placeholder="أدخل كلمة المرور" autocomplete="current-password">
+            <button class="password-toggle" id="password-toggle" type="button" aria-label="إظهار كلمة المرور">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ui-icon" aria-hidden="true"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"></path><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"></path><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"></path><path d="m2 2 20 20"></path></svg>
+            </button>
+          </div>
+          <div class="forgot"><a href="https://wa.me/201099843057?text=%D9%86%D8%B3%D9%8A%D8%AA%20%D9%83%D9%84%D9%85%D8%A9%20%D8%A7%D9%84%D8%B3%D8%B1" target="_blank" rel="noopener" data-i18n="login.forgot">هل نسيت كلمة المرور؟</a></div>
+        </div>
+
+        <div>
+          <button class="login-btn" id="login-btn" type="button">
+            <span id="login-btn-label" data-i18n="login.submit">تسجيل الدخول</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ui-icon" aria-hidden="true"><path d="m10 17 5-5-5-5"></path><path d="M15 12H3"></path><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path></svg>
+          </button>
+        </div>
+
+        <div class="login-error" id="login-error"></div>
+      </div>
+
+      <div class="terms">
+        <span data-i18n="login.terms">بتسجيل الدخول، أنت توافق على</span>
+        <a href="#" data-i18n="login.termsLink">شروط الخدمة</a>
+        <span data-i18n="login.and">و</span>
+        <a href="#" data-i18n="login.privacyLink">سياسة الخصوصية</a>.
+      </div>
+    </div>
+  </section>
+
+  <section class="visual-side" aria-hidden="true">
+    <div class="network"></div>
+    <div class="node n1"></div><div class="node n2"></div><div class="node n3"></div><div class="node n4"></div>
+    <div class="connection c1"></div><div class="connection c2"></div><div class="connection c3"></div>
+    <div class="visual-content">
+      <div class="glass">
+        <div class="brand-chip"><span data-i18n="login.brandChip">منصة الموظفين</span></div>
+        <div class="eyebrow" data-i18n="login.eyebrow">منصة الموظفين</div>
+        <h2 data-i18n="login.visualTitle">كل بياناتك في مكان واحد</h2>
+        <p data-i18n="login.visualBody">تابع حضورك وانصرافك، راجع أداءك وأهدافك، واطّلع على بياناتك وتقاريرك بسهولة من خلال لوحة واحدة.</p>
+        <div class="glass-stats">
+          <div class="glass-stat">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg>
+            <div><strong data-i18n="login.stat1Value">الحضور والانصراف</strong><span data-i18n="login.stat1Label">سجل واضح</span></div>
+          </div>
+          <div class="glass-stat">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+            <div><strong data-i18n="login.stat2Value">الأداء والأهداف</strong><span data-i18n="login.stat2Label">تتبّع دقيق</span></div>
+          </div>
+          <div class="glass-stat">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg>
+            <div><strong data-i18n="login.stat3Value">التقارير والبيانات</strong><span data-i18n="login.stat3Label">عرض منظم</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>

@@ -1,0 +1,85 @@
+<div class="app-shell">
+  <header class="topbar">
+  <div class="brand">
+    <a href="/home.html" class="brand-link" aria-label="الرئيسية">
+      <img src="/logo.png" alt="IEMS" class="topbar-logo logo-light"><img src="/logo-dark.png" alt="IEMS" class="topbar-logo logo-dark">
+      
+    </a>
+  </div>
+  <nav class="main-nav" aria-label="التنقل الرئيسي">
+    <a class="nav-item" href="/home.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"></path><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg></span><span data-i18n="nav.dashboard">الرئيسية</span></a>
+    <a class="nav-item" id="nav-employees" data-nav-role="supervisor" href="/admin-employees.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><path d="M16 3.128a4 4 0 0 1 0 7.744"></path><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><circle cx="9" cy="7" r="4"></circle></svg></span><span data-i18n="nav.employees">الموظفون</span></a>
+    <a class="nav-item" id="nav-import" data-nav-role="supervisor" href="/admin-import.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m17 8-5-5-5 5"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path></svg></span><span data-i18n="nav.import">تحديث البيانات</span></a>
+    <a class="nav-item" id="nav-manual-entry" data-nav-role="admin" href="/admin-manual-entry.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg></span><span data-i18n="nav.manualEntry">الإدخال اليدوي</span></a>
+    <a class="nav-item" id="nav-reports" data-nav-role="admin" href="/reports.html"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg></span><span data-i18n="nav.reports">التقارير</span></a>
+  </nav>
+  <div class="topbar-right">
+    <button class="icon-btn notification-btn" id="notifications-btn" title="الإشعارات" aria-label="الإشعارات"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0"></path><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"></path></svg><i>3</i></button>
+    <button class="icon-btn" id="theme-toggle" data-i18n-aria="topbar.theme" title="تغيير المظهر" aria-label="تغيير المظهر"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="theme-icon" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"></path></svg></button>
+    <div class="user-chip"><div class="avatar" id="chip-avatar">?</div><div><div class="name" id="chip-name">—</div><div class="role" id="chip-role">—</div></div></div>
+    <button class="icon-btn logout-btn" id="logout-btn" data-i18n-aria="topbar.logout" title="تسجيل الخروج" aria-label="تسجيل الخروج"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m16 17 5-5-5-5"></path><path d="M21 12H9"></path><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path></svg></button>
+  </div>
+</header>
+
+  <main class="container">
+    <div class="hero">
+      <div><span class="eyebrow">مركز التقارير</span><h1>تقارير أداء الموظفين</h1><p>أنشئ تقرير أداء احترافي حسب الفترة والمرحلة، ثم حمّله بصيغة PDF أو Excel.</p></div>
+    </div>
+
+    <section class="filters filters-modern report-filter-box">
+      <div class="filter-head modern-filter-head">
+        <div class="filter-title-wrap"><span class="filter-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z"></path></svg></span><div><h2>إعدادات التقرير</h2><span>حدد الفترة والمرحلة ثم أنشئ التقرير</span></div></div>
+      </div>
+      <div class="filter-grid filter-grid-modern report-filter-grid">
+        <div class="field report-date-field"><label for="rep-from">من تاريخ</label><div class="single-date-field report-date-picker"><span class="range-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v3"></path><path d="M16 2v3"></path><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M8 13h.01"></path><path d="M12 13h.01"></path><path d="M16 13h.01"></path><path d="M8 17h.01"></path><path d="M12 17h.01"></path><path d="M16 17h.01"></path></svg></span><input type="date" id="rep-from" aria-label="من تاريخ"></div></div>
+        <div class="field report-date-field"><label for="rep-to">إلى تاريخ</label><div class="single-date-field report-date-picker"><span class="range-icon"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v3"></path><path d="M16 2v3"></path><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M3 9h18"></path><path d="M8 13h.01"></path><path d="M12 13h.01"></path><path d="M16 13h.01"></path><path d="M8 17h.01"></path><path d="M12 17h.01"></path><path d="M16 17h.01"></path></svg></span><input type="date" id="rep-to" aria-label="إلى تاريخ"></div></div>
+        <div class="field"><label for="rep-stage">المرحلة</label><div class="input-shell"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"></path><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"></path><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"></path></svg><select id="rep-stage" multiple size="1" data-multi-filter="true"><option value="__ALL__">كل المراحل</option></select></div></div>
+        <button class="apply-btn filter-apply report-run-icon" id="rep-run-btn" title="إنشاء التقرير" aria-label="إنشاء التقرير"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="m9 15 2 2 4-4"></path></svg><span>إنشاء التقرير</span></button>
+      </div>
+    </section>
+
+    <section id="rep-error" class="upload-status error" style="display:none;margin-bottom:16px"></section>
+
+    <section class="top5-dashboard-section" id="performance">
+      <div class="top5-dashboard-head">
+        <div><span class="eyebrow">ترتيب الأداء</span><h2>أفضل 5 موظفين لكل مرحلة</h2><p>أعلى خمسة موظفين في كل مرحلة خلال الفترة المختارة.</p></div>
+        <div class="stage-chip" id="top5-range">—</div>
+      </div>
+      <div id="reports-top5-container" class="top5-container"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head" style="align-items:center">
+        <div>
+          <h2>نتائج التقرير</h2>
+          <div class="report-summary" id="rep-summary">حدد الفترة والمرحلة ثم استخدم زر إنشاء التقرير</div>
+        </div>
+        <div class="report-actions">
+          <button class="excel-btn" id="rep-excel-btn" disabled><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M8 13h2"></path><path d="M14 13h2"></path><path d="M8 17h2"></path><path d="M14 17h2"></path></svg> تحميل Excel</button>
+          <button class="pdf-btn" id="rep-pdf-btn" disabled><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"></path><path d="M14 2v5a1 1 0 0 0 1 1h5"></path><path d="M10 9H8"></path><path d="M16 13H8"></path><path d="M16 17H8"></path></svg> تحميل PDF</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="rep-table">
+          <thead>
+            <tr>
+              <th>الاسم</th>
+              <th>الشركة</th>
+              <th>الشيفت</th>
+              <th>القسم</th>
+              <th id="rep-target-head">التارجت</th>
+            </tr>
+          </thead>
+          <tbody id="rep-tbody">
+            <tr><td colspan="5" class="empty-state">لا توجد بيانات بعد</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="legal">Intercom IEMS © الشيفت أ 2026</div>
+  </main>
+</div>
+
+<!-- Printable Arabic report sheet (hidden on screen, shown only when printing) -->
+<div id="print-report-root"></div>
