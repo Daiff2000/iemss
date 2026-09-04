@@ -368,6 +368,7 @@ async function loadSelfView(dashData) {
   if (user.role === 'admin' || user.role === 'supervisor') {
     $('self-view-grid').style.display = 'none';
     $('detail-panel').style.display = 'none';
+    if ($('supervisor-target-panel')) $('supervisor-target-panel').style.display = 'none';
     if ($('emp-kpi-grid')) $('emp-kpi-grid').style.display = 'none';
     return;
   }
@@ -428,6 +429,10 @@ async function loadSelfView(dashData) {
         <div class="info-item"><span>إجمالي ساعات التأخيرات</span><b class="danger-value">${fmtHours(s.late_hours)}</b></div>
         <div class="info-item"><span>إجمالي ساعات الإضافي</span><b class="accent-value">${fmtHours(s.overtime_hours)}</b></div>`;
     }
+
+    // Supervisor target details are employee-visible and follow the same
+    // date filter currently selected on Home.
+    renderSupervisorTargets(data.supervisorTargets || {});
 
     // The monthly target is shown once, in the performance card.
     // Supervisor monthly percentages are added to it for the final monthly target.

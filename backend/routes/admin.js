@@ -557,10 +557,11 @@ router.get('/overview', requireAuth, requireAdmin, async (req, res) => {
 
   const count = async (extraSql = '', extraParams = []) => {
     const params = [...extraParams];
-    let sql = `SELECT COUNT(*) c FROM employees e WHERE e.role = 'employee'`;
+    let sql = `SELECT COUNT(*) c FROM employees e WHERE e.role = 'employee' AND COALESCE(e.status,'active') = 'active'`;
     if (shift) { sql += ' AND e.shift = ?'; params.push(shift); }
-    sql += attendanceFilter;
-    params.push(...attendanceParams);
+    // Demographic KPIs (employees/company/students/graduates) are roster KPIs,
+    // not attendance KPIs. They must not shrink just because a selected date
+    // range has no attendance row for someone.
     sql += extraSql;
     return (await db.prepare(sql).get(...params)).c;
   };

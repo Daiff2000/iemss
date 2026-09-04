@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS employees (
 -- Backward-compatible migration for existing PostgreSQL databases.
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS target_shift TEXT;
 UPDATE employees SET target_shift = CASE
-  WHEN UPPER(TRIM(COALESCE(shift,''))) IN ('A','B','C') THEN UPPER(TRIM(shift))
+  WHEN UPPER(TRIM(COALESCE(shift,''))) IN ('A','B','C','D') THEN UPPER(TRIM(shift))
   ELSE 'Other'
 END
 WHERE target_shift IS NULL OR TRIM(target_shift) = '';
@@ -10152,7 +10152,7 @@ UPDATE employees SET role='supervisor' WHERE role='uploader';
 
 -- Normalize target shift after seed/import data is present.
 UPDATE employees SET target_shift = CASE
-  WHEN UPPER(TRIM(COALESCE(shift,''))) IN ('A','B','C') THEN UPPER(TRIM(shift))
+  WHEN UPPER(TRIM(COALESCE(shift,''))) IN ('A','B','C','D') THEN UPPER(TRIM(shift))
   ELSE 'Other'
 END
 WHERE target_shift IS NULL OR TRIM(target_shift) = '';
