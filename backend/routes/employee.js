@@ -315,11 +315,40 @@ router.get('/:id', requireAuth, async (req, res) => {
 
   const supervisorTargets = await getSupervisorTargetDetails(targetId, emp.name, from, to);
 
+  // Return every shift snapshot for this employee. The canonical employee
+  // profile/KPIs still come from employees + employee_summary, while duplicate
+  // shifts get their own daily details in the employee view.
+  const shiftProfilesRows = await db.prepare(
+    `SELECT shift, profile_json
+       FROM employee_shift_profiles
+      WHERE employee_id = ?
+      ORDER BY CASE shift WHEN 'A' THEN 1 WHEN 'B' THEN 2 WHEN 'C' THEN 3 WHEN 'D' THEN 4 ELSE 5 END, shift`
+  ).all(targetId);
+  const shiftProfiles = shiftProfilesRows.map(r => {
+    const profile = r.profile_json || {};
+    return {
+      shift: r.shift,
+      stages: profile.stages || [],
+      summary: profile.summary || {},
+      employee: {
+        id: profile.id ?? targetId,
+        emp_num: profile.emp_num ?? emp.emp_num,
+        name: profile.name ?? emp.name,
+        education: profile.education ?? emp.education,
+        residence: profile.residence ?? emp.residence,
+        company: profile.company ?? emp.company,
+        shift: r.shift,
+        department: profile.department ?? emp.department,
+      }
+    };
+  });
+
   res.json({
     employee: emp,
     summary,
     attendance: { present_days: Number(attendance.present_days || 0), absent_days: Number(attendance.absent_days || 0) },
     stages: byStage,
+    shiftProfiles,
     myRanks,
     supervisorTargets,
   });

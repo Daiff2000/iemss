@@ -431,110 +431,84 @@ async function loadSelfView(dashData) {
       ).join('');
     }
 
-    const targetShift = String(emp.target_shift || emp.shift || 'Other').trim().toUpperCase();
-    const targetShiftLabel = ['A','B','C'].includes(targetShift) ? targetShift : 'Other';
-    const targetShiftBanner = $('target-shift-banner');
-    if (targetShiftBanner) {
-      targetShiftBanner.style.display = 'flex';
-      targetShiftBanner.innerHTML = `<div class="target-shift-icon">⇄</div><div><span class="target-shift-eyebrow">Target Shift · الشيفت الأساسي</span><strong>${escapeHtml(targetShiftLabel)}</strong><small>${targetShiftLabel === 'Other' ? 'لا يوجد شيفت أساسي A / B / C لهذا الموظف' : 'بيانات الموظف والـ KPIs يتم اعتمادها من هذا الشيفت'}</small></div>`;
-    }
-
-    $('emp-info-card').innerHTML = `
-      <div class="info-item"><span>الاسم</span><b>${escapeHtml(emp.name)}</b></div>
-      <div class="info-item"><span>ID</span><b>${escapeHtml(emp.id)}</b></div>
-      <div class="info-item"><span>الشركة</span><b>${escapeHtml(emp.company || '—')}</b></div>
-      <div class="info-item"><span>الشيفت</span><b>${escapeHtml(emp.shift || '—')}</b></div>
-      <div class="info-item"><span>القسم</span><b>${escapeHtml(emp.department || '—')}</b></div>
-      <div class="info-item"><span>الفئة</span><b>${escapeHtml(emp.education || '—')}</b></div>`;
-
-    const ranks = data.myRanks || [];
-    const rankBadgeHtml = ranks.length
-      ? `<div class="info-item rank-badge-item">🏆 <span>${ranks.map(r => `أنت ضمن <b>Top 5</b> في مرحلة <b>${escapeHtml(r.stage)}</b> — المركز <b>${escapeHtml(r.rank)}</b>`).join(' &nbsp;|&nbsp; ')}</span></div>`
-      : '';
-
-    $('emp-perf-card').innerHTML = `
-      <div class="info-item highlight-item monthly-target-highlight"><span>إجمالي التارجت الشهري</span><b class="highlight-value">${fmtPercent(finalMonthlyTarget)}</b></div>
-      ${rankBadgeHtml}
-      <div class="split-card-title">الحضور والغياب</div>
-      <div class="info-item"><span>إجمالي أيام الحضور</span><b class="accent-value">${fmtAttendanceNumber(s.total_present_days ?? a.present_days)}</b></div>
-      <div class="info-item"><span>إجمالي أيام الغياب</span><b class="danger-value">${fmtNumber(s.total_absence_days ?? s.total_absence)}</b></div>
-      <div class="info-item"><span>إجازة عارضة</span><b>${fmtNumber(s.casual_leave)}</b></div>
-      <div class="info-item"><span>إجازة بإذن</span><b>${fmtNumber(s.leave_with_permission)}</b></div>
-      <div class="info-item"><span>إجازة بدون إذن</span><b class="danger-value">${fmtNumber(s.leave_without_permission ?? s.unauthorized_absence)}</b></div>
-      <div class="info-item"><span>إجازة مرضي</span><b>${fmtNumber(s.sick_leave)}</b></div>
-      <div class="split-card-title">التأخير والإضافي</div>
-      <div class="info-item"><span>إجمالي أيام التأخيرات</span><b class="danger-value">${fmtNumber(s.late_days)}</b></div>
-      <div class="info-item"><span>إجمالي ساعات التأخيرات</span><b class="danger-value">${fmtHours(s.late_hours)}</b></div>
-      <div class="info-item"><span>إجمالي أيام الإضافي</span><b class="accent-value">${fmtNumber(s.overtime_days)}</b></div>
-      <div class="info-item"><span>إجمالي ساعات الإضافي</span><b class="accent-value">${fmtHours(s.overtime_hours)}</b></div>
-      <div class="split-card-title">المكافآت والخصومات والشريحة</div>
-      <div class="info-item"><span>رقم الشريحة</span><b>${escapeHtml(s.bonus_tier ?? '—')}</b></div>
-      <div class="info-item"><span>إجمالي طبيعة العمل</span><b>${fmtNumber(s.work_nature_allowance)}</b></div>
-      <div class="info-item"><span>أيام مكافأة خاصة</span><b class="accent-value">${fmtNumber(s.special_bonus_days)}</b></div>
-      <div class="info-item"><span>خصومات خاصة</span><b class="danger-value">${fmtNumber(s.special_deductions)}</b></div>`;
-
-    renderSupervisorTargets(supervisorSections);
-
-    // Daily details: the "الحضور" pseudo-stage (with its per-day percentage)
-    // is intentionally excluded here — the employee daily table shows only
-    // the real work stages, matching the original (pre-merge) layout.
-    const allStageEntries = Object.entries(data.stages || {});
-    const totalTargetEntry = allStageEntries.find(([name]) => String(name).trim().toUpperCase() === 'TOTAL TARGET %');
-    const stageEntries = allStageEntries.filter(([name, rows]) => {
-      if (String(name).trim().toUpperCase() === 'TOTAL TARGET %') return false;
-      if (String(name).trim() === 'الحضور') return false;
-      return (rows || []).some(r => r.value !== null && r.value !== undefined && r.value !== '');
-    }).sort(([a], [b]) => String(a).localeCompare(String(b), 'ar'));
-
-    const dateSet = new Set();
-    stageEntries.forEach(([, rows]) => rows.forEach(r => dateSet.add(r.date)));
-    if (totalTargetEntry) totalTargetEntry[1].forEach(r => dateSet.add(r.date));
-    const dates = [...dateSet].sort();
-    $('detail-head').innerHTML = '<th>المرحلة</th>' + dates.map(d => `<th>${escapeHtml(d.slice(5))}</th>`).join('') + '<th>الإجمالي</th><th>النسبة</th>';
-
-    if (!stageEntries.length && !totalTargetEntry) {
-      $('detail-body').innerHTML = `<tr><td colspan="${dates.length + 3}"><div class="empty-state">لا توجد بيانات مطابقة.</div></td></tr>`;
-      return;
-    }
-
-    const periodPercent = fmtPercent(baseMonthlyTarget);
-    const totalRowCount = stageEntries.length + (totalTargetEntry ? 1 : 0);
-    const stageRows = stageEntries.map(([stageName, rows], idx) => {
-      const byDate = Object.fromEntries(rows.map(r => [r.date, r.value]));
-      let sum = 0, hasNum = false;
-      const cells = dates.map(d => {
-        const v = byDate[d];
-        if (v === undefined || v === null || v === '') return '<td class="cell-empty">—</td>';
-        if (typeof v === 'number' && Number.isFinite(v)) {
-          sum += v; hasNum = true;
-          return `<td class="cell-present">${fmtAttendanceNumber(v)}</td>`;
-        }
-        return `<td class="cell-present">${escapeHtml(v)}</td>`;
-      }).join('');
-      // The target percentage is the same for every row (including the
-      // "إجمالي التارجت اليومي" total row below), so it's shown once as a
-      // merged cell (rowspan) spanning the whole column, styled with the
-      // brand color instead of repeating it on every row.
-      const percentCell = idx === 0 ? `<td rowspan="${totalRowCount}" class="merged-target-percent"><div class="merged-target-percent-inner"><b class="merged-target-percent-value">${periodPercent}</b><span class="merged-target-percent-label">النسبة الإجمالية</span></div></td>` : '';
-      return `<tr><td><b>${escapeHtml(stageName)}</b></td>${cells}<td>${hasNum ? fmtAttendanceNumber(sum) : '—'}</td>${percentCell}</tr>`;
+    // Duplicate-shift details: if the same employee was imported from more
+    // than one shift, show every stored shift separately above its own table.
+    // The employee profile/KPIs above remain tied to the canonical target shift.
+    const shiftProfiles = Array.isArray(data.shiftProfiles) ? data.shiftProfiles : [];
+    const normalizedProfiles = shiftProfiles.map(p => {
+      const stageMap = {};
+      (p.stages || []).forEach(st => {
+        if (!st || !st.role) return;
+        stageMap[st.role] = Object.entries(st.daily || {}).map(([date, value]) => ({ date, value }));
+      });
+      return { shift: p.shift || 'Other', stages: stageMap, summary: p.summary || {}, employee: p.employee || {} };
     });
 
-    if (totalTargetEntry) {
-      const totalRows = totalTargetEntry[1] || [];
-      const byDate = Object.fromEntries(totalRows.map(r => [r.date, r.value]));
-      const cells = dates.map(d => {
-        const v = byDate[d];
-        if (v === undefined || v === null || v === '') return '<td class="cell-empty total-target-cell">—</td>';
-        const n = Number(v);
-        if (Number.isFinite(n)) return `<td class="cell-present total-target-cell">${fmtPercent(n)}</td>`;
-        return `<td class="cell-present total-target-cell">${escapeHtml(v)}</td>`;
-      }).join('');
-      const totalTargetCell = Number.isFinite(baseMonthlyTarget) ? fmtPercent(baseMonthlyTarget) : '—';
-      const percentCellForTotalRow = stageEntries.length === 0 ? `<td rowspan="${totalRowCount}" class="merged-target-percent"><div class="merged-target-percent-inner"><b class="merged-target-percent-value">${periodPercent}</b><span class="merged-target-percent-label">النسبة الإجمالية</span></div></td>` : '';
-      stageRows.push(`<tr class="total-target-master-row"><td><b>إجمالي التارجت اليومي</b></td>${cells}<td><b>${totalTargetCell}</b></td>${percentCellForTotalRow}</tr>`);
+    function renderShiftDetail(profile, showShiftHeading) {
+      const allStageEntries = Object.entries(profile.stages || {});
+      const totalTargetEntry = allStageEntries.find(([name]) => String(name).trim().toUpperCase() === 'TOTAL TARGET %');
+      const stageEntries = allStageEntries.filter(([name, rows]) => {
+        if (String(name).trim().toUpperCase() === 'TOTAL TARGET %') return false;
+        if (String(name).trim() === 'الحضور') return false;
+        return (rows || []).some(r => r.value !== null && r.value !== undefined && r.value !== '');
+      }).sort(([a], [b]) => String(a).localeCompare(String(b), 'ar'));
+
+      const dateSet = new Set();
+      stageEntries.forEach(([, rows]) => rows.forEach(r => dateSet.add(r.date)));
+      if (totalTargetEntry) totalTargetEntry[1].forEach(r => dateSet.add(r.date));
+      const dates = [...dateSet].sort();
+      const periodPercent = fmtPercent(Number(profile.summary?.monthly_target));
+      const totalRowCount = stageEntries.length + (totalTargetEntry ? 1 : 0);
+      const head = '<th>المرحلة</th>' + dates.map(d => `<th>${escapeHtml(d.slice(5))}</th>`).join('') + '<th>الإجمالي</th><th>النسبة</th>';
+
+      if (!stageEntries.length && !totalTargetEntry) {
+        return `${showShiftHeading ? `<div class="shift-detail-heading"><span>تفاصيل Shift ${escapeHtml(profile.shift)}</span></div>` : ''}<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody><tr><td colspan="${dates.length + 3}"><div class="empty-state">لا توجد بيانات مطابقة.</div></td></tr></tbody></table></div>`;
+      }
+
+      const stageRows = stageEntries.map(([stageName, rows], idx) => {
+        const byDate = Object.fromEntries(rows.map(r => [r.date, r.value]));
+        let sum = 0, hasNum = false;
+        const cells = dates.map(d => {
+          const v = byDate[d];
+          if (v === undefined || v === null || v === '') return '<td class="cell-empty">—</td>';
+          if (typeof v === 'number' && Number.isFinite(v)) { sum += v; hasNum = true; return `<td class="cell-present">${fmtAttendanceNumber(v)}</td>`; }
+          return `<td class="cell-present">${escapeHtml(v)}</td>`;
+        }).join('');
+        const percentCell = idx === 0 ? `<td rowspan="${totalRowCount}" class="merged-target-percent"><div class="merged-target-percent-inner"><b class="merged-target-percent-value">${periodPercent}</b><span class="merged-target-percent-label">النسبة الإجمالية</span></div></td>` : '';
+        return `<tr><td><b>${escapeHtml(stageName)}</b></td>${cells}<td>${hasNum ? fmtAttendanceNumber(sum) : '—'}</td>${percentCell}</tr>`;
+      });
+
+      if (totalTargetEntry) {
+        const rows = totalTargetEntry[1] || [];
+        const byDate = Object.fromEntries(rows.map(r => [r.date, r.value]));
+        const cells = dates.map(d => {
+          const v = byDate[d];
+          if (v === undefined || v === null || v === '') return '<td class="cell-empty total-target-cell">—</td>';
+          const n = Number(v);
+          return Number.isFinite(n) ? `<td class="cell-present total-target-cell">${fmtPercent(n)}</td>` : `<td class="cell-present total-target-cell">${escapeHtml(v)}</td>`;
+        }).join('');
+        const totalTargetCell = Number.isFinite(Number(profile.summary?.monthly_target)) ? fmtPercent(Number(profile.summary.monthly_target)) : '—';
+        const percentCellForTotalRow = stageEntries.length === 0 ? `<td rowspan="${totalRowCount}" class="merged-target-percent"><div class="merged-target-percent-inner"><b class="merged-target-percent-value">${periodPercent}</b><span class="merged-target-percent-label">النسبة الإجمالية</span></div></td>` : '';
+        stageRows.push(`<tr class="total-target-master-row"><td><b>إجمالي التارجت اليومي</b></td>${cells}<td><b>${totalTargetCell}</b></td>${percentCellForTotalRow}</tr>`);
+      }
+
+      return `${showShiftHeading ? `<div class="shift-detail-heading"><span>تفاصيل Shift ${escapeHtml(profile.shift)}</span></div>` : ''}<div class="table-wrap shift-detail-table"><table><thead><tr>${head}</tr></thead><tbody>${stageRows.join('')}</tbody></table></div>`;
     }
 
-    $('detail-body').innerHTML = stageRows.join('');
+    const profilesToShow = normalizedProfiles.length > 1 ? normalizedProfiles : [{ shift: emp.shift || 'Other', stages: data.stages || {}, summary: s, employee: emp }];
+    const duplicateShifts = normalizedProfiles.length > 1;
+    const detailPanel = $('detail-panel');
+    const targetShiftBanner = $('target-shift-banner');
+    if (targetShiftBanner) {
+      // Old Target Shift banner is intentionally removed. For duplicates,
+      // headings such as "تفاصيل Shift Other" and "تفاصيل Shift B" are shown.
+      targetShiftBanner.style.display = 'none';
+      targetShiftBanner.innerHTML = '';
+    }
+    if (detailPanel) detailPanel.classList.toggle('has-duplicate-shifts', duplicateShifts);
+
+    $('detail-head').innerHTML = '';
+    $('detail-body').innerHTML = profilesToShow.map(p => renderShiftDetail(p, duplicateShifts)).join('');
 
     // Employee-only home: hide admin attendance analytics and company summaries.
     if (employeeOnly) {

@@ -97,8 +97,9 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
       const toUpdate = []; // {id, emp_num, name, education, residence, company, shift, target_shift, department}
       const validRows = []; // rows that will get daily/summary data written
       const promotedFromOther = new Set();
-      const PRIMARY_SHIFTS = new Set(['A', 'B', 'C']);
-      const shiftRank = { A: 1, B: 2, C: 3 };
+      const shiftProfilesToUpsert = [];
+      const PRIMARY_SHIFTS = new Set(['A', 'B', 'C', 'D']);
+      const shiftRank = { A: 1, B: 2, C: 3, D: 4 };
       const canonicalShift = value => {
         const v = String(value || '').trim().toUpperCase();
         return PRIMARY_SHIFTS.has(v) ? v : 'Other';
@@ -112,6 +113,11 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         if (existing && existing.role !== 'employee') { skipped++; continue; }
 
         const incomingShift = canonicalShift(emp.shift);
+        // Keep a complete copy for every shift. This is what allows an employee
+        // such as Michael to have both Shift Other and Shift B details without
+        // collapsing one shift into the other in stage_daily/employee_summary.
+        const resolvedEmployeeId = existing && emp.generatedId ? existing.id : emp.id;
+        shiftProfilesToUpsert.push({ employeeId: resolvedEmployeeId, shift: incomingShift, profile: emp });
         const existingTarget = existing ? canonicalShift(existing.target_shift || existing.shift) : null;
         let targetShift = existingTarget || incomingShift;
         let useRow = true;
@@ -119,7 +125,7 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
 
         if (existing && incomingShift === 'Other' && PRIMARY_SHIFTS.has(existingTarget)) {
           // Other is only a secondary copy. Never let it replace the employee's
-          // real A/B/C shift, profile data, KPIs, or daily records.
+          // real A/B/C/D shift, profile data, KPIs, or daily records.
           useRow = false;
           targetShift = existingTarget;
           skipped++;
@@ -170,7 +176,7 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         }
       }
 
-      // When an employee is promoted from Other to a real A/B/C shift, remove
+      // When an employee is promoted from Other to a real A/B/C/D shift, remove
       // the secondary copy before writing the primary data. This prevents old
       // Other rows from surviving a later primary-shift import.
       if (promotedFromOther.size) {
@@ -207,6 +213,20 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
             batch.map(e => e.id), batch.map(e => Number(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
             batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.target_shift), batch.map(e => e.department),
           ]
+        );
+      }
+
+      // Preserve every incoming shift snapshot after the canonical employee
+      // rows exist (important for newly created employees because of the FK).
+      for (const batch of chunks(shiftProfilesToUpsert, CHUNK)) {
+        if (!batch.length) continue;
+        await db.query(
+          `INSERT INTO employee_shift_profiles (employee_id, shift, profile_json, updated_at)
+           SELECT employee_id, shift, profile_json::jsonb, CURRENT_TIMESTAMP
+           FROM unnest($1::int[], $2::text[], $3::text[])
+             AS t(employee_id, shift, profile_json)
+           ON CONFLICT (employee_id, shift) DO UPDATE SET profile_json = EXCLUDED.profile_json, updated_at = CURRENT_TIMESTAMP`,
+          [batch.map(x => x.employeeId), batch.map(x => x.shift), batch.map(x => JSON.stringify(x.profile))]
         );
       }
 
