@@ -33,8 +33,11 @@ router.post('/login', async (req, res) => {
   }
 
   const { id, password } = req.body || {};
-  if (!id || !password) {
+  if (id === undefined || id === null || id === '' || !password) {
     return res.status(400).json({ error: 'من فضلك أدخل الـID وكلمة المرور' });
+  }
+  if (Number.isNaN(Number(id))) {
+    return res.status(400).json({ error: 'الـID غير صحيح' });
   }
 
   const emp = (await db.prepare('SELECT * FROM employees WHERE id = ?').get(Number(id)));

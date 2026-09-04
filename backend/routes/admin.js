@@ -363,7 +363,7 @@ router.post('/employee/:id/reset-password', requireAuth, requireAdmin, async (re
   }
 
   const hash = bcrypt.hashSync(newPassword, 10);
-  (await db.prepare('UPDATE employees SET password_hash = ?, must_change_password = 0 WHERE id = ?').run(hash, targetId));
+  (await db.prepare('UPDATE employees SET password_hash = ?, must_change_password = FALSE WHERE id = ?').run(hash, targetId));
 
   res.json({ ok: true, message: 'تم تغيير كلمة المرور بنجاح.', password: generated ? newPassword : undefined });
 });
@@ -508,7 +508,7 @@ router.post('/employee/:id/reset-default', requireAuth, requireAdmin, async (req
   if (emp.role === 'admin') return res.status(403).json({ error: 'لا يمكن تغيير كلمة مرور حساب مدير من هنا.' });
 
   const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
-  (await db.prepare('UPDATE employees SET password_hash = ?, must_change_password = 0 WHERE id = ?').run(hash, targetId));
+  (await db.prepare('UPDATE employees SET password_hash = ?, must_change_password = FALSE WHERE id = ?').run(hash, targetId));
 
   res.json({ ok: true, message: 'تم إعادة كلمة المرور إلى الافتراضية.', password: DEFAULT_PASSWORD });
 });
@@ -615,7 +615,7 @@ router.post('/manual/employee', requireAuth, requireAdmin, async (req, res) => {
     const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
     (await db.prepare(`
       INSERT INTO employees (id, emp_num, name, education, residence, company, shift, department, password_hash, role, must_change_password)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'employee', 0)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'employee', FALSE)
     `).run(id, emp_num || id, String(name).trim(), education || null, residence || null, company || null, shift || null, department || null, hash));
     res.json({ ok: true, created: true, defaultPassword: DEFAULT_PASSWORD, message: 'تم إنشاء الموظف بكلمة مرور افتراضية.' });
   } catch (err) {
