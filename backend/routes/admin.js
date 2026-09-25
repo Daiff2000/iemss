@@ -490,6 +490,70 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
 
     const result = await tx(employees);
 
+    // Import employees that exist only in the dedicated "المغادرين" sheet.
+    // The leavers sheet in the real workbook commonly has ID=0 for every row,
+    // so ID cannot be used as the identity key there. Match by normalized name
+    // first; if no existing employee is found, create a left employee record
+    // with a generated ID so it appears in "الموظفون المغادرون".
+    let leaversCreated = 0;
+    try {
+      const leaverRows = parsed.leavers || [];
+      if (leaverRows.length) {
+        const existingLeavers = await db.prepare(
+          "SELECT id, name, role, shift FROM employees WHERE role = 'employee'"
+        ).all();
+        const existingByName = new Map();
+        for (const e of existingLeavers) {
+          const key = normalizeArabicName(e.name);
+          if (key && !existingByName.has(key)) existingByName.set(key, e);
+        }
+        let nextLeaverId = Math.max(900000, ...existingLeavers.map(e => Number(e.id) || 0)) + 1;
+
+        for (const lv of leaverRows) {
+          const key = normalizeArabicName(lv.name);
+          if (!key) continue;
+
+          let existing = existingByName.get(key);
+          if (!existing) {
+            const matchedId = matchSupervisorName(lv.name, existingByName, existingLeavers);
+            if (matchedId) existing = existingLeavers.find(e => e.id === matchedId) || null;
+          }
+
+          if (existing) continue;
+
+          while (existingLeavers.some(e => e.id === nextLeaverId)) nextLeaverId++;
+          const passwordHash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
+          const shift = String(lv.shift || '').trim().toUpperCase();
+          const canonicalLeaverShift = ['A','B','C','D'].includes(shift) ? shift : 'Other';
+          const inserted = await db.prepare(`
+            INSERT INTO employees
+              (id, emp_num, name, education, residence, company, shift, target_shift, department, password_hash, role, must_change_password, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'employee', TRUE, 'left')
+            RETURNING id, name, role, shift
+          `).run(
+            nextLeaverId,
+            null,
+            lv.name,
+            lv.education || null,
+            lv.residence || null,
+            lv.company || null,
+            canonicalLeaverShift,
+            canonicalLeaverShift,
+            null,
+            passwordHash
+          );
+          const createdLeaver = inserted?.rows?.[0] || inserted?.[0] || null;
+          const record = createdLeaver || { id: nextLeaverId, name: lv.name, role: 'employee', shift: canonicalLeaverShift };
+          existingLeavers.push(record);
+          existingByName.set(key, record);
+          leaversCreated++;
+          nextLeaverId++;
+        }
+      }
+    } catch (e) {
+      console.error('Leavers import error:', e);
+    }
+
     // For a multi-file import, status is finalized only by the combined upload;
     // individual files must never archive employees missing from one file.
     let statusActive = 0, statusLeft = 0, statusArchive = 0;
@@ -533,12 +597,12 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         // else: different shift, not covered by this file -> leave untouched.
       }
       statusActive = activeIds.length;
-      statusLeft = leftIds.length;
+      statusLeft = leftIds.length + leaversCreated;
       statusArchive = archiveIds.length;
 
       const setStatusTx = db.transaction(async () => {
         if (activeIds.length) await db.query("UPDATE employees SET status = 'active' WHERE id = ANY($1::int[])", [activeIds]);
-        if (leftIds.length) await db.query("UPDATE employees SET status = 'left', left_date = COALESCE(left_date, CURRENT_DATE), departure_reason = COALESCE(NULLIF(departure_reason,''), 'غير محدد') WHERE id = ANY($1::int[])", [leftIds]);
+        if (leftIds.length) await db.query("UPDATE employees SET status = 'left' WHERE id = ANY($1::int[])", [leftIds]);
         if (archiveIds.length) await db.query("UPDATE employees SET status = 'archive' WHERE id = ANY($1::int[])", [archiveIds]);
       });
       await setStatusTx();
@@ -569,6 +633,7 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
       statusActive,
       statusLeft,
       statusArchive,
+      leaversCreated,
     });
   } catch (err) {
     console.error('Master import error:', err);

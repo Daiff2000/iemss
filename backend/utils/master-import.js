@@ -842,7 +842,12 @@ function extractEmployeeIdentities(rows) {
     result.push({
       id: generatedId ? null : rawId,
       generatedId,
-      name
+      name,
+      education: cleanText(cells[4]),
+      residence: cleanText(cells[5]),
+      company: cleanText(cells[6]),
+      shift: cleanText(cells[7]),
+      role: cleanText(cells[8])
     });
   }
 
