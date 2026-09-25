@@ -6,7 +6,7 @@ const router = express.Router();
 
 
 function canAccess(req, targetId) {
-  return req.user.role === 'admin' || Number(req.user.id) === Number(targetId);
+  return (req.user.role === 'admin' || req.user.role === 'system_creator' || req.user.role === 'supervisor') || Number(req.user.id) === Number(targetId);
 }
 
 function normalizeDate(value) {
@@ -17,6 +17,15 @@ function normalizeDate(value) {
 function list(value) { const a=Array.isArray(value)?value:String(value??'').split(','); return [...new Set(a.flatMap(v=>String(v).split(',')).map(v=>v.trim()).filter(v=>v&&v!=='__ALL__'))]; }
 function addIn(sql, params, column, values) { if (!values.length) return sql; sql += ` AND ${column} IN (${values.map(()=>'?').join(',')})`; params.push(...values); return sql; }
 
+// Payroll cycle containing `dateStr` (YYYY-MM-DD): 21st of a month -> 20th of the next.
+function payrollCycle(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const y = d.getUTCFullYear(), m = d.getUTCMonth(), day = d.getUTCDate();
+  const start = new Date(Date.UTC(day >= 21 ? y : (m === 0 ? y - 1 : y), day >= 21 ? m : (m === 0 ? 11 : m - 1), 21));
+  const end = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 20));
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
+}
+
 function dateFilterSql(alias, from, to, params) {
   let sql = '';
   if (from) { sql += ` AND ${alias}.entry_date >= ?`; params.push(from); }
@@ -25,13 +34,18 @@ function dateFilterSql(alias, from, to, params) {
 }
 
 router.get('/list', requireAuth, async (req, res) => {
-  if (req.user.role === 'admin') {
+  if (req.user.role === 'admin' || req.user.role === 'system_creator') {
     const rows = (await db.prepare(`
       SELECT id, name, shift, company, department
-      FROM employees
-      WHERE role = 'employee'
-      ORDER BY name
+      FROM employees WHERE role = 'employee' ORDER BY name
     `).all());
+    return res.json({ employees: rows });
+  }
+  if (req.user.role === 'supervisor') {
+    const rows = (await db.prepare(`
+      SELECT id, name, shift, company, department
+      FROM employees WHERE role = 'employee' AND shift = ? ORDER BY name
+    `).all(String(req.user.shift || '').trim()));
     return res.json({ employees: rows });
   }
   const self = (await db.prepare(`
@@ -62,11 +76,10 @@ router.get('/dates', requireAuth, async (req, res) => {
 });
 
 router.get('/shifts', requireAuth, async (req, res) => {
+  if (req.user.role === 'supervisor') return res.json({ shifts: req.user.shift ? [req.user.shift] : [] });
   const rows = (await db.prepare(`
-    SELECT DISTINCT shift
-    FROM employees
-    WHERE role = 'employee' AND shift IS NOT NULL AND TRIM(shift) <> ''
-    ORDER BY shift
+    SELECT DISTINCT shift FROM employees
+    WHERE role = 'employee' AND shift IS NOT NULL AND TRIM(shift) <> '' ORDER BY shift
   `).all());
   res.json({ shifts: rows.map(r => r.shift) });
 });
@@ -144,8 +157,9 @@ router.get('/dashboard', requireAuth, async (req, res) => {
   if (req.query.to && !to) return res.status(400).json({ error: 'صيغة تاريخ النهاية غير صحيحة.' });
   if (from && to && from > to) return res.status(400).json({ error: 'تاريخ البداية يجب أن يسبق تاريخ النهاية.' });
 
-  const isAdmin = req.user.role === 'admin';
-  const visibleEmployeeIds = isAdmin ? null : [Number(req.user.id)];
+  const isAdmin = req.user.role === 'admin' || req.user.role === 'system_creator';
+  const isSupervisor = req.user.role === 'supervisor';
+  const visibleEmployeeIds = isAdmin || isSupervisor ? null : [Number(req.user.id)];
   const baseParams = [];
   let baseWhere = `WHERE e.role = 'employee'`;
   if (visibleEmployeeIds) {
@@ -153,6 +167,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
     baseParams.push(visibleEmployeeIds[0]);
   }
   if (isAdmin) baseWhere = addIn(baseWhere, baseParams, 'e.shift', requestedShifts);
+  if (isSupervisor) { baseWhere += ' AND e.shift = ?'; baseParams.push(String(req.user.shift || '').trim()); }
 
   const employees = (await db.prepare(`SELECT e.id, e.name, e.company, e.shift, e.department FROM employees e ${baseWhere} ORDER BY e.name`).all(...baseParams));
   const employeeCount = employees.length;
@@ -161,6 +176,7 @@ router.get('/dashboard', requireAuth, async (req, res) => {
   let attendanceWhere = `WHERE e.role = 'employee' AND sd.stage = 'الحضور'`;
   if (visibleEmployeeIds) { attendanceWhere += ` AND e.id = ?`; attendanceParams.push(visibleEmployeeIds[0]); }
   if (isAdmin) attendanceWhere = addIn(attendanceWhere, attendanceParams, 'e.shift', requestedShifts);
+  if (isSupervisor) { attendanceWhere += ' AND e.shift = ?'; attendanceParams.push(String(req.user.shift || '').trim()); }
   attendanceWhere += dateFilterSql('sd', from, to, attendanceParams);
 
   const attendance = (await db.prepare(`
@@ -177,12 +193,13 @@ router.get('/dashboard', requireAuth, async (req, res) => {
 
   // Top 5 is always computed company-wide (or per selected shift) so rankings are meaningful,
   // but only admins get the full breakdown back; employees only learn their own rank(s).
-  const { stages, top5ByStage } = await computeTop5ByStage(from, to, requestedStages, isAdmin ? requestedShifts : []);
+  const { stages, top5ByStage } = await computeTop5ByStage(from, to, requestedStages, isAdmin ? requestedShifts : (isSupervisor ? [String(req.user.shift || '').trim()] : []));
 
   const presentDaysByEmployeeParams = [];
   let presentWhere = `WHERE sd.stage = 'الحضور' AND e.role = 'employee'`;
   if (visibleEmployeeIds) { presentWhere += ` AND e.id = ?`; presentDaysByEmployeeParams.push(visibleEmployeeIds[0]); }
   if (isAdmin) presentWhere = addIn(presentWhere, presentDaysByEmployeeParams, 'e.shift', requestedShifts);
+  if (isSupervisor) { presentWhere += ' AND e.shift = ?'; presentDaysByEmployeeParams.push(String(req.user.shift || '').trim()); }
   presentWhere += dateFilterSql('sd', from, to, presentDaysByEmployeeParams);
   const attendanceByEmployee = (await db.prepare(`
     SELECT sd.employee_id AS id, COALESCE(SUM(CASE WHEN sd.value_num IN (0.5, 1, 1.5) THEN sd.value_num ELSE 0 END), 0) AS present_days
@@ -246,6 +263,11 @@ router.get('/dashboard', requireAuth, async (req, res) => {
   res.json(payload);
 });
 
+router.get('/months', requireAuth, async (req, res) => {
+  const rows = await db.prepare(`SELECT DISTINCT month_start FROM employee_monthly_summary ORDER BY month_start DESC`).all();
+  res.json({ months: rows.map(r => String(r.month_start).slice(0, 7)) });
+});
+
 router.get('/:id', requireAuth, async (req, res) => {
   const targetId = Number(req.params.id);
   if (!canAccess(req, targetId)) {
@@ -257,18 +279,41 @@ router.get('/:id', requireAuth, async (req, res) => {
     FROM employees WHERE id = ? AND role = 'employee'
   `).get(targetId));
   if (!emp) return res.status(404).json({ error: 'الموظف غير موجود' });
+  if (req.user.role === 'supervisor' && String(emp.shift || '') !== String(req.user.shift || '')) return res.status(403).json({ error: 'يمكن للمشرف عرض موظفي الشيفت الخاص به فقط.' });
 
-  const summary = (await db.prepare(`
-    SELECT total_achievement, total_target, percentage, bonus_tier,
+  let { from, to, stage, month } = req.query;
+
+  // Data from every uploaded month lives in stage_daily. With no period given,
+  // this route used to sum ALL months together, so each new upload made the
+  // employee's totals grow. Default to the latest payroll cycle (21st -> 20th)
+  // that this employee actually has data for; an explicit from/to/month still wins.
+  const hasMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''));
+  if (!from && !to && !hasMonth) {
+    const lastRow = await db.prepare('SELECT MAX(entry_date) AS d FROM stage_daily WHERE employee_id = ?').get(targetId);
+    const last = lastRow && lastRow.d ? String(lastRow.d).slice(0, 10) : '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(last)) {
+      const c = payrollCycle(last);
+      from = c.start; to = c.end; month = c.start.slice(0, 7);
+    }
+  }
+  const summaryFields = `total_achievement, total_target, percentage, bonus_tier,
            unauthorized_absence, total_absence, work_nature_allowance,
            monthly_target, total_present_days, total_absence_days,
            casual_leave, leave_with_permission, leave_without_permission,
            sick_leave, late_days, late_hours, overtime_days, overtime_hours,
-           special_bonus_days, special_deductions
-    FROM employee_summary WHERE employee_id = ?
-  `).get(targetId)) || {};
-
-  const { from, to, stage } = req.query;
+           special_bonus_days, special_deductions`;
+  let summary = {};
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))) {
+    // month_start is stored as the cycle start (YYYY-MM-21), so match anywhere in
+    // that calendar month. The old `= YYYY-MM-01` comparison never matched.
+    const monthFirst = `${month}-01`;
+    const nextFirst = new Date(`${monthFirst}T00:00:00Z`);
+    nextFirst.setUTCMonth(nextFirst.getUTCMonth() + 1);
+    summary = (await db.prepare(`SELECT ${summaryFields} FROM employee_monthly_summary WHERE employee_id = ? AND month_start >= ? AND month_start < ? ORDER BY month_start DESC LIMIT 1`).get(targetId, monthFirst, nextFirst.toISOString().slice(0, 10))) || {};
+  }
+  if (!Object.keys(summary).length) {
+    summary = (await db.prepare(`SELECT ${summaryFields} FROM employee_summary WHERE employee_id = ?`).get(targetId)) || {};
+  }
   let sql = 'SELECT stage, entry_date, value_num, value_text FROM stage_daily WHERE employee_id = ?';
   const params = [targetId];
   if (from) { sql += ' AND entry_date >= ?'; params.push(from); }
@@ -314,6 +359,35 @@ router.get('/:id', requireAuth, async (req, res) => {
   const myRanks = myTop5Ranks(top5ByStage, targetId);
 
   const supervisorTargets = await getSupervisorTargetDetails(targetId, emp.name, from, to);
+  let stageTargets = await getStageTargets(
+    targetId,
+    emp.target_shift || emp.shift,
+    from,
+    to,
+    month
+  );
+
+  // Safety net for employees imported before employee_stage_targets existed,
+  // or for an import where the target table was created but a target could not
+  // be read yet. The importer stores the complete stage snapshot in
+  // employee_shift_profiles, so the employee page can still display the exact
+  // target that came from the workbook. DB rows always win, which means a later
+  // import automatically replaces an old target.
+  {
+    const fallbackProfile = await db.prepare(
+      `SELECT profile_json FROM employee_shift_profiles WHERE employee_id = ? AND shift = ?`
+    ).get(targetId, String(emp.target_shift || emp.shift || 'Other').trim() || 'Other');
+    const stages = fallbackProfile?.profile_json?.stages || [];
+    for (const stage of stages) {
+      const value = Number(stage?.monthlyTarget);
+      if (!stage?.role || stage.role === 'الحضور') continue;
+      // Keep the database snapshot as the source of truth when it exists;
+      // only fill gaps from the imported profile snapshot.
+      if (stageTargets[stage.role] === undefined && Number.isFinite(value) && value > 0) {
+        stageTargets[stage.role] = value;
+      }
+    }
+  }
 
   // Return every shift snapshot for this employee. The canonical employee
   // profile/KPIs still come from employees + employee_summary, while duplicate
@@ -348,11 +422,44 @@ router.get('/:id', requireAuth, async (req, res) => {
     summary,
     attendance: { present_days: Number(attendance.present_days || 0), absent_days: Number(attendance.absent_days || 0) },
     stages: byStage,
+    stageTargets,
     shiftProfiles,
     myRanks,
     supervisorTargets,
   });
 });
+
+async function getStageTargets(employeeId, shift, from, to, month) {
+  const params = [employeeId, String(shift || 'Other').trim() || 'Other'];
+  let sql = `
+    SELECT stage, target_monthly, month_start, source_formula
+    FROM employee_stage_targets
+    WHERE employee_id = ? AND shift = ?`;
+
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(String(month || ''))) {
+    const monthStart = `${month}-01`;
+    const next = new Date(`${monthStart}T00:00:00Z`);
+    next.setUTCMonth(next.getUTCMonth() + 1);
+    sql += ' AND month_start >= ? AND month_start < ?';
+    params.push(monthStart, next.toISOString().slice(0, 10));
+  } else if (normalizeDate(to)) {
+    // A payroll cycle starts on the 21st. Selecting the latest target snapshot
+    // not after the requested end date keeps date-filtered details aligned
+    // without discarding a cycle that started before `from`.
+    sql += ' AND month_start <= ?';
+    params.push(to);
+  }
+
+  sql += ' ORDER BY month_start DESC, updated_at DESC, stage';
+  const rows = await db.prepare(sql).all(...params);
+  const targets = {};
+  for (const row of rows) {
+    if (targets[row.stage] !== undefined) continue;
+    const value = Number(row.target_monthly);
+    if (Number.isFinite(value) && value > 0) targets[row.stage] = value;
+  }
+  return targets;
+}
 
 /**
  * "تفاصيل تارجت الاشراف" — daily supervisor-target rows for this employee

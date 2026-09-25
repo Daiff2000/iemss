@@ -51,3 +51,7 @@
  .reports-page .container{width:min(100% - 20px,1200px)!important}
  .report-actions{width:100%}.report-actions button{flex:1}
 }
+
+.report-quick-ranges{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 14px}.report-quick-ranges span{font-size:10px;color:var(--muted);font-weight:800}.report-quick-ranges button{border:1px solid var(--line);background:var(--soft);color:var(--text);border-radius:9px;padding:7px 11px;font:800 10px 'Cairo',sans-serif;cursor:pointer}.report-quick-ranges button:hover{border-color:var(--primary);color:var(--primary)}
+
+@media(min-width:1051px){.reports-page .report-filter-grid{display:grid;grid-template-columns:1fr 1fr 1.15fr 1.15fr 1fr;align-items:end}.reports-page .report-filter-grid .filter-apply{min-width:0;max-width:none}}

@@ -9,7 +9,8 @@ const pool = new Pool({
 });
 
 const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-const data = JSON.parse(fs.readFileSync(path.join(__dirname, 'initial-data.json'), 'utf8'));
+const seedEnabled = process.env.SEED_INITIAL_DATA === 'true';
+const data = seedEnabled ? JSON.parse(fs.readFileSync(path.join(__dirname, 'initial-data.json'), 'utf8')) : null;
 
 async function insertBatch(client, table, columns, rows, mapRow, conflict = '') {
   const batchSize = 200;
@@ -31,6 +32,10 @@ async function main() {
   const client = await pool.connect();
   try {
     await client.query(schema);
+    if (!seedEnabled) {
+      console.log('Schema ensured. Initial data seeding is disabled by default; existing production data is never replaced by deploys.');
+      return;
+    }
     const count = Number((await client.query('SELECT COUNT(*)::int AS c FROM employees')).rows[0].c);
     if (count > 0) {
       console.log(`PostgreSQL already contains ${count} employees; keeping existing data.`);

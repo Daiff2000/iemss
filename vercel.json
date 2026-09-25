@@ -1,56 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "frontend": {
-      "root": "frontend",
-      "framework": "vite",
-      "rewrites": [
-        {
-          "source": "/home.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/dashboard.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/admin-employees.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/admin-import.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/admin-manual-entry.html",
-          "destination": "/index.html"
-        },
-        {
-          "source": "/reports.html",
-          "destination": "/index.html"
-        }
-      ]
-    },
-    "backend": {
-      "root": "backend",
-      "framework": "express",
-      "entrypoint": "server.js"
+  "buildCommand": "npm run build",
+  "outputDirectory": "frontend/dist",
+  "framework": null,
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 60,
+      "memory": 1024,
+      "includeFiles": "backend/**"
     }
   },
   "rewrites": [
-    {
-      "source": "/api(/.*)?",
-      "destination": {
-        "type": "service",
-        "service": "backend"
-      }
-    },
-    {
-      "source": "/(.*)",
-      "destination": {
-        "type": "service",
-        "service": "frontend"
-      }
-    }
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/home.html", "destination": "/index.html" },
+    { "source": "/dashboard.html", "destination": "/index.html" },
+    { "source": "/admin-employees.html", "destination": "/index.html" },
+    { "source": "/admin-import.html", "destination": "/index.html" },
+    { "source": "/admin-manual-entry.html", "destination": "/index.html" },
+    { "source": "/reports.html", "destination": "/index.html" },
+    { "source": "/audit-logs.html", "destination": "/index.html" },
+    { "source": "/themes.html", "destination": "/index.html" },
+    { "source": "/employees-current.html", "destination": "/index.html" },
+    { "source": "/employees-left.html", "destination": "/index.html" },
+    { "source": "/employees-new.html", "destination": "/index.html" },
+    { "source": "/employee.html", "destination": "/index.html" }
   ]
 }

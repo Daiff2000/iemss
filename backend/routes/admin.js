@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const db = require('../database/init');
-const { requireAuth, requireAdmin, requireSupervisor, requireUploader } = require('../middleware/auth');
+const { requireAuth, requireAdmin, requireSupervisor, requireUploader, requireSystemCreator, isCreator } = require('../middleware/auth');
 const { parseMasterWorkbook } = require('../utils/master-import');
 const { computeTop5ByStage } = require('./employee');
 
@@ -9,6 +9,15 @@ const router = express.Router();
 function parseList(v){const a=Array.isArray(v)?v:String(v??'').split(',');return [...new Set(a.flatMap(x=>String(x).split(',')).map(x=>x.trim()).filter(x=>x&&x!=='__ALL__'))];}
 
 const DEFAULT_PASSWORD = 'P@ssw0rd';
+
+async function writeAudit(req, action, entityType = null, entityId = null, details = {}) {
+  try {
+    await db.prepare(`INSERT INTO audit_logs
+      (actor_id, actor_name, action, entity_type, entity_id, details_json, ip)
+      VALUES (?, ?, ?, ?, ?, ?::jsonb, ?)`)
+      .run(Number(req.user?.id) || null, req.user?.name || null, action, entityType, entityId == null ? null : String(entityId), JSON.stringify(details || {}), req.ip || null);
+  } catch (e) { console.error('Audit log write failed:', e); }
+}
 
 // Loose Arabic name normalization used to match supervisor names (from the
 // OPP A / OPP B / QC / File Trail sheets) against employees.name.
@@ -55,7 +64,6 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
     if (filename && !/\.xlsx$/i.test(filename)) {
       return res.status(400).json({ error: 'ارفع ملف Excel بصيغة .xlsx فقط.' });
     }
-
     const base64 = data.includes(',') ? data.split(',').pop() : data;
     const buffer = Buffer.from(base64, 'base64');
     if (!buffer.length) return res.status(400).json({ error: 'ملف Excel فارغ أو غير صالح.' });
@@ -63,6 +71,33 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
 
     const parsed = parseMasterWorkbook(buffer);
     const employees = parsed.employees;
+
+    // Payroll cycle is determined automatically from the Master dates: 21st
+    // through the 20th of the following month. Store the cycle start date.
+    const importedDates = [];
+    for (const emp of employees) {
+      for (const stage of (emp.stages || [])) {
+        for (const date of Object.keys(stage.daily || {})) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date)) importedDates.push(date);
+        }
+      }
+    }
+    if (!importedDates.length) {
+      return res.status(400).json({ error: 'لم يتم العثور على تواريخ يومية داخل ملف الـ Master.' });
+    }
+    const uniqueCycles = new Set(importedDates.map(date => {
+      const d = new Date(`${date}T00:00:00Z`);
+      const y = d.getUTCFullYear();
+      const m = d.getUTCMonth();
+      const day = d.getUTCDate();
+      const cycleYear = day >= 21 ? y : (m === 0 ? y - 1 : y);
+      const cycleMonth = day >= 21 ? m : (m === 0 ? 11 : m - 1);
+      return `${cycleYear}-${String(cycleMonth + 1).padStart(2, '0')}-21`;
+    }));
+    if (uniqueCycles.size > 1) {
+      return res.status(400).json({ error: 'ملف الـ Master يحتوي على تواريخ تنتمي لأكثر من دورة. يجب أن تكون كل التواريخ داخل دورة واحدة من 21 إلى 20.' });
+    }
+    const monthStart = [...uniqueCycles][0];
 
     // Bulk-insert/update helper: splits `rows` into chunks and issues ONE
     // round-trip per chunk via `unnest(...)` instead of one round-trip per row.
@@ -81,6 +116,7 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
       let created = 0;
       let updated = 0;
       let daily = 0;
+      let stageTargets = 0;
       let skipped = 0;
       const newCredentials = [];
       const updatedEmployees = [];
@@ -90,9 +126,20 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
       // instead of one SELECT per row.
       const allEmployeesForLookup = await db.prepare('SELECT id, name, role, shift, target_shift FROM employees').all();
       const byId = new Map(allEmployeesForLookup.map(e => [e.id, e]));
+      // Rows without an ID are matched by name. Names differ slightly from month
+      // to month (double spaces, أ/ا, ى/ي, diacritics), and a miss here made an
+      // employee who already exists look "new" and get re-inserted.
+      const nameKey = v => String(v || '')
+        .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
+        .replace(/[أإآٱ]/g, 'ا')
+        .replace(/ى/g, 'ي')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
       const byName = new Map();
-      for (const e of allEmployeesForLookup) if (!byName.has(e.name)) byName.set(e.name, e);
+      for (const e of allEmployeesForLookup) if (!byName.has(nameKey(e.name))) byName.set(nameKey(e.name), e);
 
+      let nextGeneratedId = Math.max(900000, ...allEmployeesForLookup.map(e => Number(e.id) || 0)) + 1;
       const toInsert = []; // {id, emp_num, name, education, residence, company, shift, target_shift, department, hash}
       const toUpdate = []; // {id, emp_num, name, education, residence, company, shift, target_shift, department}
       const validRows = []; // rows that will get daily/summary data written
@@ -108,8 +155,15 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
       for (const emp of rows) {
         if (!emp.id || emp.id === 0 || !emp.name) { skipped++; continue; }
 
-        const existing = emp.generatedId ? byName.get(emp.name) : byId.get(emp.id);
+        const existing = emp.generatedId ? byName.get(nameKey(emp.name)) : byId.get(emp.id);
         if (existing && emp.generatedId) emp.id = existing.id;
+        // Rows without a real ID get a temporary ID (900000+). That temp ID can
+        // already belong to a different employee created by an earlier import,
+        // which made the INSERT below fail with employees_pkey. Move to the next
+        // free ID instead.
+        if (!existing && emp.generatedId) {
+          while (byId.has(emp.id)) emp.id = nextGeneratedId++;
+        }
         if (existing && existing.role !== 'employee') { skipped++; continue; }
 
         const incomingShift = canonicalShift(emp.shift);
@@ -166,6 +220,12 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         if (!existing) {
           const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
           toInsert.push({ id: emp.id, emp_num: emp.emp_num || emp.id, name: emp.name, education: emp.education, residence: emp.residence, company: emp.company, shift: profileShift, target_shift: targetShift, department: emp.department, hash });
+          // Register the new employee right away. Otherwise a second row for the
+          // same ID/name in the same file (another tab, another shift) is also
+          // seen as "not existing" and queued for insert -> duplicate key.
+          const queued = { id: emp.id, name: emp.name, role: 'employee', shift: profileShift, target_shift: targetShift };
+          byId.set(emp.id, queued);
+          if (!byName.has(nameKey(emp.name))) byName.set(nameKey(emp.name), queued);
           created++;
           createdEmployees.push({ id: emp.id, name: emp.name });
           newCredentials.push({ id: emp.id, name: emp.name, password: DEFAULT_PASSWORD });
@@ -191,7 +251,12 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
           `INSERT INTO employees (id, emp_num, name, education, residence, company, shift, target_shift, department, password_hash, role, must_change_password)
            SELECT id, emp_num, name, education, residence, company, shift, target_shift, department, password_hash, 'employee', false
            FROM unnest($1::int[], $2::int[], $3::text[], $4::text[], $5::text[], $6::text[], $7::text[], $8::text[], $9::text[], $10::text[])
-             AS t(id, emp_num, name, education, residence, company, shift, target_shift, department, password_hash)`,
+             AS t(id, emp_num, name, education, residence, company, shift, target_shift, department, password_hash)
+           ON CONFLICT (id) DO UPDATE SET
+             emp_num = EXCLUDED.emp_num, name = EXCLUDED.name, education = EXCLUDED.education,
+             residence = EXCLUDED.residence, company = EXCLUDED.company, shift = EXCLUDED.shift,
+             target_shift = EXCLUDED.target_shift, department = EXCLUDED.department
+           WHERE employees.role = 'employee'`,
           [
             batch.map(e => e.id), batch.map(e => Number(e.emp_num)), batch.map(e => e.name), batch.map(e => e.education),
             batch.map(e => e.residence), batch.map(e => e.company), batch.map(e => e.shift), batch.map(e => e.target_shift), batch.map(e => e.department),
@@ -230,10 +295,72 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         );
       }
 
-      // 4) Bulk delete existing daily rows for a full (non-merge) re-import,
-      // in ONE statement instead of one DELETE per employee.
+      // Persist the monthly target encoded in each stage's Master!AO formula.
+      // Targets are keyed by employee, shift, and payroll cycle so a later
+      // import can change them without rewriting historical months.
+      const stageTargetMap = new Map();
+      for (const profileRow of shiftProfilesToUpsert) {
+        for (const stage of profileRow.profile?.stages || []) {
+          const target = Number(stage.monthlyTarget);
+          if (!stage.role || stage.role === 'الحضور' || !Number.isFinite(target) || target <= 0) continue;
+          const key = `${profileRow.employeeId}|${profileRow.shift}|${stage.role}`;
+          stageTargetMap.set(key, {
+            employeeId: profileRow.employeeId,
+            shift: profileRow.shift,
+            stage: stage.role,
+            target,
+            sourceFormula: stage.monthlyTargetFormula || null,
+          });
+        }
+      }
+      const stageTargetRows = [...stageTargetMap.values()];
+      const targetEmployeeIds = [...new Set(shiftProfilesToUpsert.map(x => x.employeeId))];
+      const targetShifts = [...new Set(shiftProfilesToUpsert.map(x => x.shift))];
+      if (targetEmployeeIds.length && targetShifts.length) {
+        // If a formula disappears from a re-import, remove the old value for
+        // that cycle instead of silently showing a stale target.
+        await db.query(
+          `DELETE FROM employee_stage_targets
+           WHERE employee_id = ANY($1::int[]) AND month_start = $2::date
+             AND shift = ANY($3::text[])`,
+          [targetEmployeeIds, monthStart, targetShifts]
+        );
+      }
+      for (const batch of chunks(stageTargetRows, CHUNK)) {
+        if (!batch.length) continue;
+        await db.query(
+          `INSERT INTO employee_stage_targets
+             (employee_id, shift, month_start, stage, target_monthly, source_formula)
+           SELECT employee_id, shift, month_start, stage, target_monthly, source_formula
+           FROM unnest($1::int[], $2::text[], $3::date[], $4::text[], $5::float8[], $6::text[])
+             AS t(employee_id, shift, month_start, stage, target_monthly, source_formula)
+           ON CONFLICT (employee_id, shift, month_start, stage) DO UPDATE SET
+             target_monthly = excluded.target_monthly,
+             source_formula = excluded.source_formula,
+             updated_at = CURRENT_TIMESTAMP`,
+          [
+            batch.map(x => x.employeeId),
+            batch.map(x => x.shift),
+            batch.map(() => monthStart),
+            batch.map(x => x.stage),
+            batch.map(x => x.target),
+            batch.map(x => x.sourceFormula),
+          ]
+        );
+        stageTargets += batch.length;
+      }
+
+      // 4) For a normal Master re-import, replace ONLY the imported payroll
+      // cycle's daily rows. Never delete older cycles (21->20 history).
       if (!merge && validRows.length) {
-        await db.query('DELETE FROM stage_daily WHERE employee_id = ANY($1::int[])', [validRows.map(e => e.id)]);
+        const cycleEnd = new Date(`${monthStart}T00:00:00Z`);
+        cycleEnd.setUTCMonth(cycleEnd.getUTCMonth() + 1);
+        cycleEnd.setUTCDate(cycleEnd.getUTCDate() - 1); // 20th of next month
+        const cycleEndIso = cycleEnd.toISOString().slice(0, 10);
+        await db.query(
+          'DELETE FROM stage_daily WHERE employee_id = ANY($1::int[]) AND entry_date BETWEEN $2::date AND $3::date',
+          [validRows.map(e => e.id), monthStart, cycleEndIso]
+        );
       }
 
       // 5) Flatten every employee/stage/date cell into flat arrays and bulk
@@ -298,14 +425,41 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         );
       }
 
-      // Match supervisor-target rows. In a multi-file import we merge blocks
-      // from all files instead of deleting the rows uploaded by the previous file.
+
+      // 7) Preserve the Employee Summary as a monthly snapshot. The legacy
+      // employee_summary table remains the latest/current snapshot for older
+      // screens, while this table keeps every imported month separately.
+      for (const batch of chunks(validRows, CHUNK)) {
+        if (!batch.length) continue;
+        const arrs = [batch.map(e => e.id), ...sCols.map(c => c === 'bonus_tier'
+          ? batch.map(e => (e.summary[c] === null || e.summary[c] === undefined || e.summary[c] === '') ? null : String(e.summary[c]))
+          : batch.map(e => toSummaryNumber(e.summary[c])) )];
+        const unnestTypes = ['int', ...sCols.map(c => c === 'bonus_tier' ? 'text' : 'float8')];
+        const unnestSql = arrs.map((_, i) => `$${i + 1}::${unnestTypes[i]}[]`).join(', ');
+        await db.query(
+          `INSERT INTO employee_monthly_summary (employee_id, month_start, ${sCols.join(', ')})
+           SELECT employee_id, $${arrs.length + 1}::date, ${sCols.join(', ')}
+           FROM unnest(${unnestSql}) AS t(employee_id, ${sCols.join(', ')})
+           ON CONFLICT (employee_id, month_start) DO UPDATE SET
+             ${sCols.map(c => `${c} = excluded.${c}`).join(', ')}, updated_at = CURRENT_TIMESTAMP`,
+          [...arrs, monthStart]
+        );
+      }
+
+      // Match supervisor-target rows. We always merge blocks across files
+      // instead of deleting the month's existing rows first: whether the
+      // shift sheets (Shift A, Shift C, ...) are uploaded together in one
+      // batch or one at a time in separate uploads, each file's rows must
+      // only add/update its own (section, supervisor_name, entry_date)
+      // records, never wipe out rows a previous, separate upload already
+      // stored for this month. The upsert below (ON CONFLICT ... DO UPDATE)
+      // already handles corrections to a single row, so no blanket DELETE
+      // is needed here.
       let supervisorLinked = 0;
       let supervisorUnmatched = 0;
       const allEmployeesNow = await db.prepare("SELECT id, name FROM employees WHERE role = 'employee'").all();
       const nameIndex = new Map();
       for (const e of allEmployeesNow) nameIndex.set(normalizeArabicName(e.name), e.id);
-      if (!merge) await db.query('DELETE FROM supervisor_targets');
 
       const supervisorRecs = parsed.supervisorTargets || [];
       const tEmp = [], tName = [], tSection = [], tDate = [], tDaily = [], tMonthly = [], tMetrics = [];
@@ -331,7 +485,7 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
         );
       }
 
-      return { created, updated, daily, skipped, newCredentials, updatedEmployees, createdEmployees, supervisorLinked, supervisorUnmatched };
+      return { created, updated, daily, stageTargets, skipped, newCredentials, updatedEmployees, createdEmployees, supervisorLinked, supervisorUnmatched };
     });
 
     const result = await tx(employees);
@@ -384,7 +538,7 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
 
       const setStatusTx = db.transaction(async () => {
         if (activeIds.length) await db.query("UPDATE employees SET status = 'active' WHERE id = ANY($1::int[])", [activeIds]);
-        if (leftIds.length) await db.query("UPDATE employees SET status = 'left' WHERE id = ANY($1::int[])", [leftIds]);
+        if (leftIds.length) await db.query("UPDATE employees SET status = 'left', left_date = COALESCE(left_date, CURRENT_DATE), departure_reason = COALESCE(NULLIF(departure_reason,''), 'غير محدد') WHERE id = ANY($1::int[])", [leftIds]);
         if (archiveIds.length) await db.query("UPDATE employees SET status = 'archive' WHERE id = ANY($1::int[])", [archiveIds]);
       });
       await setStatusTx();
@@ -394,10 +548,23 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
 
     }
 
+    // Persist a durable import history entry in PostgreSQL. This is intentionally
+    // separate from localStorage so it survives browser changes and Vercel deploys.
+    await db.prepare(`
+      INSERT INTO import_history
+        (imported_by, imported_by_name, filename, month_start, updated_count, created_count, daily_count, skipped_count, supervisor_linked, supervisor_unmatched, status, details_json)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'success', ?::jsonb)
+    `).run(
+      req.user.id, req.user.name || null, filename || 'Master.xlsx', monthStart, result.updated, result.created,
+      result.daily, result.skipped, result.supervisorLinked, result.supervisorUnmatched,
+      JSON.stringify({ updatedEmployees: result.updatedEmployees, createdEmployees: result.createdEmployees, stageTargets: result.stageTargets })
+    );
+
+    await writeAudit(req, 'import_master', 'import', null, { filename: filename || 'Master.xlsx', month_start: monthStart, updated: result.updated, created: result.created, daily: result.daily, stage_targets: result.stageTargets, skipped: result.skipped });
     // New employee passwords are intentionally returned once to the admin so they can be distributed.
     res.json({
       ok: true,
-      message: `تم استيراد شيت Master بنجاح: ${result.updated} موظف محدث، ${result.created} موظف جديد، ${result.daily} سجل يومي. تفاصيل تارجت الاشراف: ${result.supervisorLinked} سجل مربوط بموظف${result.supervisorUnmatched ? `، ${result.supervisorUnmatched} سجل بدون تطابق اسم` : ''}. الحالة: ${statusActive} نشط، ${statusLeft} غادر، ${statusArchive} أرشيف.`,
+      message: `تم استيراد شيت Master بنجاح: ${result.updated} موظف محدث، ${result.created} موظف جديد، ${result.daily} سجل يومي، ${result.stageTargets} تارجت مرحلة محفوظ. تفاصيل تارجت الاشراف: ${result.supervisorLinked} سجل مربوط بموظف${result.supervisorUnmatched ? `، ${result.supervisorUnmatched} سجل بدون تطابق اسم` : ''}. الحالة: ${statusActive} نشط، ${statusLeft} غادر، ${statusArchive} أرشيف.`,
       ...result,
       statusActive,
       statusLeft,
@@ -409,27 +576,85 @@ router.post('/import-master', requireAuth, requireUploader, async (req, res) => 
   }
 });
 
+// Durable import history. Available to full admins and supervisors who can import.
+router.get('/import-history', requireAuth, requireSupervisor, async (req, res) => {
+  const rows = await db.prepare(`
+    SELECT id, imported_by, imported_by_name, filename, month_start, updated_count, created_count, daily_count, skipped_count,
+           supervisor_linked, supervisor_unmatched, status, details_json, created_at
+    FROM import_history
+    ORDER BY created_at DESC, id DESC
+    LIMIT 100
+  `).all();
+  res.json({ history: rows.map(r => ({
+    ...r,
+    details: r.details_json || null,
+  })) });
+});
+
+// Update the currently authenticated user's own name/password. This is the
+// safe self-service path for the protected primary system administrator.
+// It cannot change id, role, status, or any other account's data.
+router.patch('/me/profile', requireAuth, async (req, res) => {
+  const userId = Number(req.user.id);
+  if (!Number.isInteger(userId)) return res.status(400).json({ error: 'حساب غير صالح.' });
+
+  const emp = await db.prepare('SELECT id, name, role FROM employees WHERE id = ?').get(userId);
+  if (!emp) return res.status(404).json({ error: 'الحساب غير موجود.' });
+
+  const { name, currentPassword, newPassword } = req.body || {};
+  if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
+    return res.status(400).json({ error: 'الاسم غير صالح.' });
+  }
+  if (newPassword !== undefined) {
+    if (typeof newPassword !== 'string' || newPassword.length < 4) {
+      return res.status(400).json({ error: 'كلمة المرور يجب أن تكون 4 أحرف على الأقل.' });
+    }
+    if (!currentPassword || typeof currentPassword !== 'string') {
+      return res.status(400).json({ error: 'أدخل كلمة المرور الحالية لتغيير كلمة المرور.' });
+    }
+    const full = await db.prepare('SELECT password_hash FROM employees WHERE id = ?').get(userId);
+    if (!full || !bcrypt.compareSync(String(currentPassword), full.password_hash)) {
+      return res.status(401).json({ error: 'كلمة المرور الحالية غير صحيحة.' });
+    }
+  }
+
+  const fields = [];
+  const values = [];
+  if (name !== undefined) { fields.push('name = ?'); values.push(name.trim()); }
+  if (newPassword !== undefined) { fields.push('password_hash = ?'); values.push(bcrypt.hashSync(newPassword, 10)); fields.push('must_change_password = FALSE'); }
+  if (!fields.length) return res.status(400).json({ error: 'لم يتم إرسال أي تعديل.' });
+  values.push(userId);
+  await db.prepare(`UPDATE employees SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+
+  const updated = await db.prepare('SELECT id, name, role, shift, company, department, must_change_password FROM employees WHERE id = ?').get(userId);
+  res.json({ ok: true, user: updated, message: 'تم تحديث بيانات حسابك بنجاح.' });
+});
+
 // Delete an employee (and their daily records / summary via ON DELETE CASCADE)
-router.delete('/employee/:id', requireAuth, requireAdmin, async (req, res) => {
+router.delete('/employee/:id', requireAuth, requireSystemCreator, async (req, res) => {
   const targetId = Number(req.params.id);
   if (!Number.isInteger(targetId)) return res.status(400).json({ error: 'رقم موظف غير صالح.' });
 
   const emp = (await db.prepare('SELECT id, role FROM employees WHERE id = ?').get(targetId));
   if (!emp) return res.status(404).json({ error: 'الموظف غير موجود.' });
-  if (emp.role === 'admin') return res.status(403).json({ error: 'لا يمكن حذف حساب مدير.' });
+  const primaryAdminId = await getPrimaryAdminId();
+  if (targetId === primaryAdminId) return res.status(403).json({ error: 'لا يمكن حذف حساب مدير النظام الأساسي.' });
+  if (targetId === req.user.id) return res.status(400).json({ error: 'لا يمكنك حذف حسابك من هنا.' });
 
   (await db.prepare('DELETE FROM employees WHERE id = ?').run(targetId));
+  await writeAudit(req, 'delete_employee', 'employee', targetId, {});
   res.json({ ok: true, message: 'تم حذف الموظف بنجاح.' });
 });
 
 // Reset/change an employee's password
-router.post('/employee/:id/reset-password', requireAuth, requireAdmin, async (req, res) => {
+router.post('/employee/:id/reset-password', requireAuth, requireSystemCreator, async (req, res) => {
   const targetId = Number(req.params.id);
   if (!Number.isInteger(targetId)) return res.status(400).json({ error: 'رقم موظف غير صالح.' });
 
   const emp = (await db.prepare('SELECT id, role FROM employees WHERE id = ?').get(targetId));
   if (!emp) return res.status(404).json({ error: 'الموظف غير موجود.' });
-  if (emp.role === 'admin') return res.status(403).json({ error: 'لا يمكن تغيير كلمة مرور حساب مدير من هنا.' });
+  const primaryAdminId = await getPrimaryAdminId();
+  if (targetId === primaryAdminId) return res.status(403).json({ error: 'لا يمكن تغيير كلمة مرور مدير النظام الأساسي من هنا.' });
 
   let { newPassword } = req.body || {};
   let generated = false;
@@ -442,6 +667,7 @@ router.post('/employee/:id/reset-password', requireAuth, requireAdmin, async (re
 
   const hash = bcrypt.hashSync(newPassword, 10);
   (await db.prepare('UPDATE employees SET password_hash = ?, must_change_password = FALSE WHERE id = ?').run(hash, targetId));
+  await writeAudit(req, 'change_password', 'employee', targetId, { generated });
 
   res.json({ ok: true, message: 'تم تغيير كلمة المرور بنجاح.', password: generated ? newPassword : undefined });
 });
@@ -450,12 +676,14 @@ router.post('/employee/:id/reset-password', requireAuth, requireAdmin, async (re
 // Includes every account (regular employees + supervisor accounts + full admins)
 // so the full-control admin can see and change everyone's permission level.
 router.get('/employees', requireAuth, requireSupervisor, async (req, res) => {
+  const scoped = req.user.role === 'supervisor';
   const rows = (await db.prepare(`
-    SELECT id, emp_num, name, education, residence, company, shift, department, role, must_change_password, status
+    SELECT id, emp_num, name, education, residence, company, shift, department, role, must_change_password, status, left_date, departure_reason, created_at, supervisor_shifts
     FROM employees
+    WHERE ${scoped ? "role = 'employee' AND shift = ANY(?::text[])" : '1=1'}
     ORDER BY name
-  `).all());
-  const total = rows.filter(r => r.role === 'employee').length;
+  `).all(...(scoped ? [Array.isArray(req.user.supervisorShifts)&&req.user.supervisorShifts.length ? req.user.supervisorShifts : [String(req.user.shift || '').trim()]] : [])));
+  const total = rows.filter(r => r.role === 'employee' && (r.status || 'active') === 'active').length;
   const primaryAdminId = await getPrimaryAdminId();
 
   // Mark employees who currently hold a Top 5 rank in at least one stage
@@ -485,41 +713,58 @@ router.get('/employees', requireAuth, requireSupervisor, async (req, res) => {
 // original super admin account and must always keep full control — nobody,
 // including other full-control admins, can demote or reassign their role.
 async function getPrimaryAdminId() {
-  const row = (await db.prepare(`SELECT id FROM employees WHERE role = 'admin' ORDER BY id ASC LIMIT 1`).get());
+  const row = (await db.prepare(`SELECT id FROM employees WHERE role IN ('system_creator','admin') ORDER BY CASE WHEN role='system_creator' THEN 0 ELSE 1 END, id ASC LIMIT 1`).get());
   return row ? row.id : null;
 }
 
-router.patch('/employee/:id/role', requireAuth, requireSupervisor, async (req, res) => {
+router.patch('/employee/:id/role', requireAuth, requireAdmin, async (req, res) => {
   const targetId = Number(req.params.id);
   if (!Number.isInteger(targetId)) return res.status(400).json({ error: 'رقم موظف غير صالح.' });
 
   const { role } = req.body || {};
-  const allowedRoles = ['admin', 'supervisor', 'employee'];
+  const allowedRoles = ['system_creator', 'admin', 'supervisor', 'employee'];
   if (!allowedRoles.includes(role)) return res.status(400).json({ error: 'صلاحية غير صالحة.' });
-
-  // Supervisors may only assign employee <-> supervisor. Only the full
-  // system admin can grant or revoke the admin permission.
-  if (req.user.role === 'supervisor' && role === 'admin') {
-    return res.status(403).json({ error: 'المشرف لا يمكنه منح صلاحية مدير النظام.' });
-  }
 
   if (req.user.id === targetId) {
     return res.status(400).json({ error: 'لا يمكنك تغيير صلاحيتك الخاصة.' });
   }
 
-  const primaryAdminId = await getPrimaryAdminId();
-  if (primaryAdminId !== null && targetId === primaryAdminId) {
-    return res.status(403).json({ error: 'لا يمكن تغيير صلاحية مدير النظام الأساسي.' });
-  }
-
   const target = (await db.prepare('SELECT id, role FROM employees WHERE id = ?').get(targetId));
   if (!target) return res.status(404).json({ error: 'الموظف غير موجود.' });
-  if (req.user.role === 'supervisor' && target.role === 'admin') {
-    return res.status(403).json({ error: 'لا يمكن للمشرف تعديل صلاحية مدير النظام.' });
+  const primaryAdminId = await getPrimaryAdminId();
+  if (targetId === primaryAdminId && role !== target.role) {
+    return res.status(403).json({ error: 'حساب مدير النظام الأساسي محمي ولا يمكن تغيير صلاحيته.' });
   }
 
-  (await db.prepare('UPDATE employees SET role = ? WHERE id = ?').run(role, targetId));
-  res.json({ ok: true, message: 'تم تحديث الصلاحية بنجاح.', role });
+  // Supervisor: employee <-> supervisor only.
+  if (req.user.role === 'supervisor' && (role === 'admin' || role === 'system_creator' || target.role === 'admin' || target.role === 'system_creator')) {
+    return res.status(403).json({ error: 'المشرف لا يمكنه تعديل صلاحيات الإدارة.' });
+  }
+  // Manager (admin): may grant admin (full control, same as themself),
+  // supervisor, or employee to any account, but can never touch the
+  // system_creator account or grant the system_creator role — that stays
+  // exclusive to the creator.
+  if (req.user.role === 'admin' && (role === 'system_creator' || target.role === 'system_creator')) {
+    return res.status(403).json({ error: 'مدير النظام لا يمكنه تعديل صلاحية منشئ النظام أو منحها.' });
+  }
+  // There is one system-creator account. It is the highest permission level.
+  if (role === 'system_creator') {
+    const existingCreator = await db.prepare("SELECT id FROM employees WHERE role = 'system_creator' LIMIT 1").get();
+    if (existingCreator && Number(existingCreator.id) !== targetId) {
+      return res.status(409).json({ error: 'يوجد بالفعل حساب واحد بصلاحية منشئ النظام.' });
+    }
+  }
+  // Creator has full role-management authority except changing their own role.
+  let supervisorShifts = null;
+  if (role === 'supervisor') {
+    const raw = Array.isArray(req.body?.supervisorShifts) ? req.body.supervisorShifts : [];
+    supervisorShifts = [...new Set(raw.map(v => String(v || '').trim().toUpperCase()).filter(v => ['A','B','C','D','OTHER'].includes(v)))];
+    if (!supervisorShifts.length) return res.status(400).json({ error: 'اختر شيفتًا واحدًا على الأقل للمشرف.' });
+  }
+  if (role !== 'supervisor') supervisorShifts = [];
+  await db.prepare('UPDATE employees SET role = ?, supervisor_shifts = ?::text[] WHERE id = ?').run(role, supervisorShifts, targetId);
+  await writeAudit(req, 'change_role', 'employee', targetId, { from: target.role, to: role });
+  res.json({ ok: true, message: 'تم تحديث الصلاحية بنجاح.', role, supervisorShifts: supervisorShifts || [] });
 });
 
 // Company-wide overview stats for the admin dashboard
@@ -571,37 +816,103 @@ router.get('/overview', requireAuth, requireAdmin, async (req, res) => {
   const bravos = await count(` AND UPPER(e.company) LIKE '%BRAVOS%'`);
   const students = await count(` AND e.education = 'طالب'`);
   const graduates = await count(` AND e.education = 'خريج'`);
-
-  res.json({ total, smart, bravos, students, graduates, other: Math.max(total - smart - bravos, 0) });
+  // "New" and "Left" KPIs are roster KPIs that link to the Current-month New
+  // page and the Left page, so they must count exactly what those pages list.
+  // They used to be clipped by the Home attendance date range (the range of the
+  // imported attendance data): a departure dated after the last imported day,
+  // a left employee with no left_date, or employees created after the period
+  // all fell outside it, which is why both cards showed 0.
+  const shiftSql = shift ? ' AND e.shift = ?' : '';
+  const shiftParams = shift ? [shift] : [];
+  const newEmployees = Number((await db.prepare(
+    `SELECT COUNT(*) c FROM employees e
+      WHERE e.role='employee'${shiftSql}
+        AND e.created_at >= (date_trunc('month', NOW() AT TIME ZONE 'Africa/Cairo') AT TIME ZONE 'Africa/Cairo')`
+  ).get(...shiftParams)).c || 0);
+  const leftEmployees = Number((await db.prepare(
+    `SELECT COUNT(*) c FROM employees e
+      WHERE e.role='employee' AND e.status='left'${shiftSql}`
+  ).get(...shiftParams)).c || 0);
+  res.json({ total, smart, bravos, students, graduates, other: Math.max(total-smart-bravos,0), newEmployees, leftEmployees });
 });;
 
 // Reset an employee's password back to the shared company default
 // ("P@ssw0rd"). Employees never choose their own password - only the admin
 // can set/reset it, from this Employees management page.
-router.post('/employee/:id/reset-default', requireAuth, requireAdmin, async (req, res) => {
+router.post('/employee/:id/reset-default', requireAuth, requireSystemCreator, async (req, res) => {
   const targetId = Number(req.params.id);
   if (!Number.isInteger(targetId)) return res.status(400).json({ error: 'رقم موظف غير صالح.' });
 
   const emp = (await db.prepare('SELECT id, role FROM employees WHERE id = ?').get(targetId));
   if (!emp) return res.status(404).json({ error: 'الموظف غير موجود.' });
-  if (emp.role === 'admin') return res.status(403).json({ error: 'لا يمكن تغيير كلمة مرور حساب مدير من هنا.' });
+  const primaryAdminId = await getPrimaryAdminId();
+  if (targetId === primaryAdminId) return res.status(403).json({ error: 'لا يمكن تغيير كلمة مرور مدير النظام الأساسي من هنا.' });
 
   const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
   (await db.prepare('UPDATE employees SET password_hash = ?, must_change_password = FALSE WHERE id = ?').run(hash, targetId));
+  await writeAudit(req, 'reset_default_password', 'employee', targetId, {});
 
   res.json({ ok: true, message: 'تم إعادة كلمة المرور إلى الافتراضية.', password: DEFAULT_PASSWORD });
+});
+
+// Bulk password import: [{ id, password }, ...] -> sets each employee's password
+// in one call. The admin UI sends this in small batches (bcrypt is CPU-heavy, so
+// one request per ~25 accounts keeps every call far below the function timeout).
+// Passwords are never written to the audit log - only counts and IDs.
+router.post('/import-passwords', requireAuth, requireSystemCreator, async (req, res) => {
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : null;
+  if (!rows || !rows.length) return res.status(400).json({ error: 'لا توجد بيانات لرفعها.' });
+  if (rows.length > 100) return res.status(400).json({ error: 'الحد الأقصى 100 حساب في الطلب الواحد.' });
+
+  const primaryAdminId = await getPrimaryAdminId();
+  const updated = [], notFound = [], invalid = [], protectedIds = [];
+  const seen = new Set();
+
+  for (const r of rows) {
+    const id = Number(r?.id);
+    const password = typeof r?.password === 'string' ? r.password.trim() : '';
+    if (!Number.isInteger(id) || id <= 0) { invalid.push({ id: r?.id ?? null, reason: 'ID غير صالح' }); continue; }
+    if (password.length < 4) { invalid.push({ id, reason: 'الباسورد أقل من 4 أحرف' }); continue; }
+    if (seen.has(id)) { invalid.push({ id, reason: 'ID مكرر في الملف' }); continue; }
+    seen.add(id);
+    if (id === primaryAdminId) { protectedIds.push(id); continue; }
+
+    const emp = await db.prepare('SELECT id FROM employees WHERE id = ?').get(id);
+    if (!emp) { notFound.push(id); continue; }
+
+    const hash = bcrypt.hashSync(password, 10);
+    await db.prepare('UPDATE employees SET password_hash = ?, must_change_password = FALSE WHERE id = ?').run(hash, id);
+    updated.push(id);
+  }
+
+  await writeAudit(req, 'bulk_import_passwords', 'employee', null, {
+    updated: updated.length, not_found: notFound.length, invalid: invalid.length, protected: protectedIds.length,
+    updated_ids: updated
+  });
+
+  res.json({
+    ok: true,
+    updated: updated.length,
+    notFound,
+    invalid,
+    protected: protectedIds,
+    message: `تم تحديث ${updated.length} كلمة مرور.`
+  });
 });
 
 // Update an employee's ID and/or name. Changing the ID is done inside a
 // transaction with foreign-key checks briefly relaxed so related rows
 // (summary, daily records, login audit) move over atomically.
-router.patch('/employee/:id', requireAuth, requireAdmin, async (req, res) => {
+router.patch('/employee/:id', requireAuth, requireSystemCreator, async (req, res) => {
   const targetId = Number(req.params.id);
   if (!Number.isInteger(targetId)) return res.status(400).json({ error: 'رقم موظف غير صالح.' });
 
   const emp = (await db.prepare('SELECT id, role FROM employees WHERE id = ?').get(targetId));
   if (!emp) return res.status(404).json({ error: 'الموظف غير موجود.' });
-  if (emp.role === 'admin') return res.status(403).json({ error: 'لا يمكن تعديل حساب مدير من هنا.' });
+  const primaryAdminId = await getPrimaryAdminId();
+  if (targetId === primaryAdminId) {
+    return res.status(403).json({ error: 'حساب مدير النظام الأساسي محمي. استخدم إعدادات حسابك لتعديل الاسم أو كلمة المرور.' });
+  }
 
   let { newId, name, company, shift, department, education, residence, emp_num } = req.body || {};
   if (name !== undefined && (typeof name !== 'string' || !name.trim())) {
@@ -654,6 +965,14 @@ router.patch('/employee/:id', requireAuth, requireAdmin, async (req, res) => {
   res.json({ ok: true, employee: updated });
 });
 
+// ---- Employee departure management (Supervisor / Admin / System Creator) ----
+const DEPARTURE_REASONS=['استقالة','كثرة الغياب عن العمل','ضعف الأداء / عدم تحقيق التارجت','مخالفة لوائح العمل','مخالفة إدارية / سلوكية','ترك العمل بدون إخطار','خدمة الوطن (الجيش)'];
+function normalizeDepartureReason(value){ return String(value ?? '').replace(/\s+/g,' ').trim(); }
+function isValidDepartureDate(value){ const d=String(value ?? '').trim(); if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false; const [y,m,day]=d.split('-').map(Number); const dt=new Date(Date.UTC(y,m-1,day)); return dt.getUTCFullYear()===y && dt.getUTCMonth()===m-1 && dt.getUTCDate()===day; }
+router.get('/employee/:id/departure',requireAuth,requireSupervisor,async(req,res)=>{const id=Number(req.params.id);const emp=await db.prepare("SELECT id,role,shift,left_date,departure_reason,status FROM employees WHERE id=?").get(id);if(!emp||emp.role!=='employee')return res.status(404).json({error:'الموظف غير موجود.'});if(req.user.role==='supervisor'){const allowed=Array.isArray(req.user.supervisorShifts)&&req.user.supervisorShifts.length?req.user.supervisorShifts:[req.user.shift||''];if(!allowed.includes(String(emp.shift||'')))return res.status(403).json({error:'لا يمكنك الوصول إلى موظف خارج الشيفتات المسندة إليك.'});}res.json({departure:{leftDate:emp.left_date?String(emp.left_date).slice(0,10):'',reason:emp.departure_reason||'',status:emp.status||'active'}})});
+router.patch('/employee/:id/departure',requireAuth,requireSupervisor,async(req,res)=>{const id=Number(req.params.id);const emp=await db.prepare("SELECT id,role,shift FROM employees WHERE id=?").get(id);if(!emp||emp.role!=='employee')return res.status(404).json({error:'الموظف غير موجود.'});if(req.user.role==='supervisor'){const allowed=Array.isArray(req.user.supervisorShifts)&&req.user.supervisorShifts.length?req.user.supervisorShifts:[req.user.shift||''];if(!allowed.includes(String(emp.shift||'')))return res.status(403).json({error:'لا يمكنك تسجيل مغادرة موظف خارج الشيفتات المسندة إليك.'});}const d=String(req.body?.leftDate||'').trim(),r=normalizeDepartureReason(req.body?.reason);const matchedReason=DEPARTURE_REASONS.find(x=>x===r);if(!isValidDepartureDate(d)||!matchedReason)return res.status(400).json({error:!isValidDepartureDate(d)?'تاريخ المغادرة غير صالح.': 'اختر سبب مغادرة صحيح.'});await db.prepare("UPDATE employees SET status='left',left_date=?,departure_reason=? WHERE id=?").run(d,matchedReason,id);await writeAudit(req,'mark_employee_left','employee',id,{left_date:d,departure_reason:matchedReason});res.json({ok:true,departure:{leftDate:d,reason:matchedReason}})});
+router.patch('/employee/:id/reactivate',requireAuth,requireSystemCreator,async(req,res)=>{const id=Number(req.params.id);await db.prepare("UPDATE employees SET status='active',left_date=NULL,departure_reason=NULL WHERE id=? AND role='employee'").run(id);await writeAudit(req,'reactivate_employee','employee',id,{});res.json({ok:true})});
+router.get('/employee-group/:group',requireAuth,requireSupervisor,async(req,res)=>{const g=String(req.params.group||'all');if(!['all','current','left','archive'].includes(g))return res.status(400).json({error:'تصنيف غير صالح.'});const sc=req.user.role==='supervisor', supervisorShifts=Array.isArray(req.user.supervisorShifts)&&req.user.supervisorShifts.length?req.user.supervisorShifts:[req.user.shift||''], ps=sc?supervisorShifts:[], sq=sc?` AND e.shift = ANY(?::text[])`:'';let st='';if(g==='current')st=" AND COALESCE(e.status,'active')='active'";if(g==='left')st=" AND e.status='left'";if(g==='archive')st=" AND e.status='archive'";const rows=await db.prepare(`SELECT id,emp_num,name,education,company,shift,department,status,left_date,departure_reason,created_at,supervisor_shifts FROM employees e WHERE e.role='employee'${sq}${st} ORDER BY name`).all(...ps);res.json({employees:rows,total:rows.length,group:g})});
 // ---- Manual entry (data-entry screen, alternative to uploading the Master Excel sheet) ----
 
 // Reference data for the manual-entry screen: known employees, stage names
@@ -861,27 +1180,41 @@ router.post('/manual/supervisor-target', requireAuth, requireAdmin, async (req, 
 // ---- Reports (used by public/reports.html) ----
 
 // Distinct stage names recorded in stage_daily, for the report stage filter.
-router.get('/report/stages', requireAuth, requireAdmin, async (req, res) => {
+router.get('/report/stages', requireAuth, async (req, res) => {
   const rows = (await db.prepare(`SELECT DISTINCT stage FROM stage_daily WHERE stage <> 'TOTAL TARGET %' ORDER BY stage`).all());
   res.json({ stages: rows.map(r => r.stage) });
 });
 
 // Employees who have at least one daily record within [from, to] (optionally
 // filtered to one stage), with their target/value summed over that range.
-router.get('/report/attendance', requireAuth, requireAdmin, async (req, res) => {
+router.get('/report/attendance', requireAuth, async (req, res) => {
   const { from, to } = req.query;
   const stages = parseList(req.query.stage);
+  const requestedShifts = parseList(req.query.shift);
+  const isAdmin = req.user.role === 'admin' || req.user.role === 'system_creator';
+  const isSupervisor = req.user.role === 'supervisor';
+  const isEmployee = req.user.role === 'employee';
+  const ownShift = String(req.user.shift || '').trim();
+  if (isSupervisor && !ownShift) return res.status(403).json({ error: 'حساب المشرف غير مرتبط بشيفت.' });
+  if (isEmployee && !req.user.id) return res.status(403).json({ error: 'حساب الموظف غير صالح.' });
+  if (!stages.length) return res.status(400).json({ error: 'اختيار المرحلة شرط أساسي لإنشاء تقرير أرقام الموظفين.' });
 
   if (!from || !to || !/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
     return res.status(400).json({ error: 'حدد فترة تاريخ صالحة (من - إلى).' });
   }
 
-  const stageSql = stages.length ? ` AND stage IN (${stages.map(()=>'?').join(',')})` : '';
-  const idParams = stages.length ? [from, to, ...stages] : [from, to];
+  const stageSql = ` AND sd.stage IN (${stages.map(()=>'?').join(',')})`;
+  const idParams = [from, to, ...stages];
+  let shiftSql = '';
+  let scopeParams = [...idParams];
+  if (isSupervisor) { shiftSql = ' AND e.shift = ?'; scopeParams.push(ownShift); }
+  else if (isEmployee) { shiftSql = ' AND e.id = ?'; scopeParams.push(Number(req.user.id)); }
+  else if (isAdmin && requestedShifts.length) { shiftSql = ` AND e.shift IN (${requestedShifts.map(()=>'?').join(',')})`; scopeParams.push(...requestedShifts); }
   const empIds = (await db.prepare(`
-    SELECT DISTINCT employee_id FROM stage_daily
-    WHERE entry_date BETWEEN ? AND ?${stageSql}
-  `).all(...idParams)).map(r => r.employee_id);
+    SELECT DISTINCT sd.employee_id FROM stage_daily sd
+    JOIN employees e ON e.id = sd.employee_id
+    WHERE sd.entry_date BETWEEN ? AND ?${stageSql}${shiftSql}
+  `).all(...scopeParams)).map(r => r.employee_id);
 
   if (!empIds.length) {
     return res.json({ employees: [], total: 0, from, to, stage: stages.length ? stages : '__ALL__' });
@@ -900,6 +1233,71 @@ router.get('/report/attendance', requireAuth, requireAdmin, async (req, res) => 
 
   const result = await Promise.all(employees.map(async e => ({ ...e, stage_target: stages.length ? (await targetStmt.get(e.id, ...stages, from, to)).t : (await targetStmt.get(e.id, from, to)).t })));
   res.json({ employees: result, total: result.length, from, to, stage: stages.length ? stages : '__ALL__' });
+});
+
+// ---- System Creator: audit logs + banner/theme management ----
+router.get('/audit-logs', requireAuth, requireSystemCreator, async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 200, 1), 500);
+  const rows = await db.prepare(`
+    SELECT id, actor_id, actor_name, action, entity_type, entity_id, details_json, ip, created_at
+    FROM audit_logs ORDER BY created_at DESC LIMIT ?
+  `).all(limit);
+  res.json({ logs: rows.map(r => ({ ...r, details: r.details_json || {} })) });
+});
+
+function getBannerPayload(row) {
+  let value = row?.value_json || {};
+  // PostgreSQL normally returns JSONB as an object, but older deployments
+  // may have stored the JSON payload as text.
+  if (typeof value === 'string') {
+    try { value = JSON.parse(value); } catch (_) { value = {}; }
+  }
+  return value && typeof value === 'object' ? value : {};
+}
+
+router.get('/banner', requireAuth, async (req, res) => {
+  const row = await db.prepare(`SELECT value_json FROM system_settings WHERE key = 'home_banner'`).get();
+  const value = getBannerPayload(row);
+  res.json({ banner: value.data || null, filename: value.filename || null, updated_at: value.updated_at || null });
+});
+
+// The home page uses the binary endpoint so it does not have to download a
+// multi-megabyte base64 JSON response just to display an image.
+router.get('/banner/image', requireAuth, async (req, res) => {
+  const row = await db.prepare(`SELECT value_json FROM system_settings WHERE key = 'home_banner'`).get();
+  const value = getBannerPayload(row);
+  const match = String(value.data || '').match(/^data:(image\/(?:png|jpe?g|webp));base64,([A-Za-z0-9+/=\s]+)$/i);
+  if (!match) return res.status(404).end();
+
+  const buffer = Buffer.from(match[2].replace(/\s/g, ''), 'base64');
+  if (!buffer.length) return res.status(404).end();
+  res.set({
+    'Content-Type': match[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : match[1].toLowerCase(),
+    'Cache-Control': 'private, no-store',
+  });
+  return res.send(buffer);
+});
+
+router.put('/banner', requireAuth, requireSystemCreator, async (req, res) => {
+  const { data, filename } = req.body || {};
+  if (!data || typeof data !== 'string' || !/^data:image\/(png|jpe?g|webp);base64,/i.test(data)) {
+    return res.status(400).json({ error: 'ارفع صورة PNG أو JPG أو WEBP صالحة.' });
+  }
+  if (data.length > 7_000_000) return res.status(413).json({ error: 'حجم صورة البانر كبير جدًا. الحد الأقصى حوالي 5MB.' });
+  const payload = JSON.stringify({ data, filename: String(filename || 'banner'), updated_at: new Date().toISOString() });
+  await db.prepare(`
+    INSERT INTO system_settings (key, value_json, updated_by)
+    VALUES ('home_banner', ?::jsonb, ?)
+    ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_by=excluded.updated_by, updated_at=CURRENT_TIMESTAMP
+  `).run(payload, Number(req.user.id));
+  await writeAudit(req, 'update_banner', 'system_settings', 'home_banner', { filename: filename || 'banner' });
+  res.json({ ok: true, message: 'تم تحديث صورة البانر.' });
+});
+
+router.delete('/banner', requireAuth, requireSystemCreator, async (req, res) => {
+  await db.prepare(`DELETE FROM system_settings WHERE key = 'home_banner'`).run();
+  await writeAudit(req, 'remove_banner', 'system_settings', 'home_banner', {});
+  res.json({ ok: true, message: 'تم حذف صورة البانر.' });
 });
 
 module.exports = router;

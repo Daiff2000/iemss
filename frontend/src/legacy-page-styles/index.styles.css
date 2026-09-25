@@ -135,3 +135,26 @@ html[data-theme="dark"] .glass-stats{border-top-color:rgba(255,255,255,.08)}
 /* Login form card gets a touch more corporate polish */
 .login-form-side{box-shadow:16px 0 46px rgba(11,61,145,.07)}
 .logo-wrap img{filter:drop-shadow(0 2px 6px rgba(11,61,145,.08))}
+
+/* ===== Login background photo (visual side) ===== */
+.visual-side{
+  background:#033A70 url('/login-bg.jpg') 22% center / cover no-repeat;
+}
+/* replaces the aurora gradient with a soft brand-blue tint + bottom fade
+   so the glass card stays readable over the photo */
+.visual-side:before{
+  inset:0;filter:none;animation:none;
+  background:
+    linear-gradient(180deg,rgba(4,75,140,.10) 0%,rgba(4,60,115,.10) 45%,rgba(3,40,85,.55) 100%),
+    linear-gradient(160deg,rgba(6,91,171,.18),rgba(3,58,112,.10));
+}
+html[data-theme="dark"] .visual-side{background:#050b18 url('/login-bg.jpg') 22% center / cover no-repeat}
+html[data-theme="dark"] .visual-side:before{
+  background:
+    linear-gradient(180deg,rgba(5,11,24,.40) 0%,rgba(5,11,24,.45) 45%,rgba(3,7,16,.80) 100%);
+}
+/* the decorative grid / floating shapes fight with a real photo */
+.visual-side .network,
+.visual-side .node,
+.visual-side .connection{display:none}
+.visual-side .visual-content{z-index:1}

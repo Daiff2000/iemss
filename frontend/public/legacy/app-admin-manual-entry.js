@@ -1,8 +1,14 @@
 const token = sessionStorage.getItem('iems_token');
 const userRaw = sessionStorage.getItem('iems_user');
-if (!token || !userRaw) window.location.href = '/index.html';
-const user = JSON.parse(userRaw);
-if (user.role !== 'admin') window.location.href = '/home.html';
+// Guard: a redirect is asynchronous, so the rest of this file used to keep
+// running with user === null and throw a TypeError, leaving a half-built
+// broken page on screen instead of navigating away. useLegacyScripts wraps
+// every legacy script in a function, so `return` here is valid and safe.
+if (!token || !userRaw) { window.location.href = '/index.html'; return; }
+let user = null;
+try { user = JSON.parse(userRaw); } catch (_) {}
+if (!user || !user.role) { sessionStorage.clear(); window.location.href = '/index.html'; return; }
+if (!['system_creator','admin'].includes(user.role)) { window.location.href = '/home.html'; return; }
 
 const $ = id => document.getElementById(id);
 function authHeaders() { return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }; }

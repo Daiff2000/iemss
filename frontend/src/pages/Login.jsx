@@ -10,7 +10,7 @@ export default function Login() {
     <LegacyPage
       bodyHtml={bodyHtml}
       pageStyleCss={pageStyleCss}
-      scripts={[ '/legacy/i18n.js', '/legacy/app-login.js']}
+      scripts={[  '/legacy/app-login.js']}
     />
   );
 }

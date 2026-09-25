@@ -1,5 +1,6 @@
 (() => {
   const token=sessionStorage.getItem('iems_token');
+  let userRole=''; try{userRole=JSON.parse(sessionStorage.getItem('iems_user')||'{}').role||''}catch(_){}
   const $=id=>document.getElementById(id);
   if(!token||!$('reports-top5-container')) return;
   const api=async path=>{const r=await fetch(path,{headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}});if(r.status===401){sessionStorage.clear();location.href='/index.html';throw Error('انتهت الجلسة')}const d=await r.json();if(!r.ok)throw Error(d.error||'حدث خطأ');return d};
@@ -20,9 +21,11 @@
   const load=async()=>{try{
     const from=$('rep-from').value,to=$('rep-to').value;
     const stages=[...$('rep-stage').selectedOptions].map(o=>o.value).filter(v=>v&&v!=='__ALL__');
+    const shifts=[...($('rep-shift')?.selectedOptions||[])].map(o=>o.value).filter(v=>v&&v!=='__ALL__');
     if(!from||!to)return;
     const p=new URLSearchParams({from,to});
     stages.forEach(v=>p.append('stage',v));
+    if(userRole==='admin'||userRole==='system_creator') shifts.forEach(v=>p.append('shift',v));
     const d=await api('/api/employee/dashboard?'+p);
     render(d);
   }catch(e){$('reports-top5-container').innerHTML=`<div class="empty-state">${esc(e.message)}</div>`}};

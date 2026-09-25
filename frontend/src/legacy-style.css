@@ -57,11 +57,13 @@
 /* Total employees badge */
 .emp-total-badge{font-size:12px;color:var(--text);font-weight:900;background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:6px 12px;margin-inline-end:10px}
 
-/* Role select dropdown in the employees table */
-.role-select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer}
-.role-select.role-admin{border-color:var(--danger);color:var(--danger)}
-.role-select.role-supervisor{border-color:#d9a441;color:#d9a441}
-.role-select.role-employee{border-color:var(--line)}
+/* Permission select: one semantic palette in light and dark themes. */
+.role-select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:11.5px;font-weight:800;cursor:pointer;color-scheme:light dark}
+.role-select.role-system_creator{border-color:var(--role-creator);color:var(--role-creator);background:color-mix(in srgb,var(--role-creator) 8%,var(--panel))}
+.role-select.role-admin{border-color:var(--danger);color:var(--danger);background:color-mix(in srgb,var(--danger) 8%,var(--panel))}
+.role-select.role-supervisor{border-color:var(--warning);color:var(--warning);background:color-mix(in srgb,var(--warning) 9%,var(--panel))}
+.role-select.role-employee{border-color:var(--line);color:var(--muted)}
+.role-select:disabled{cursor:not-allowed;opacity:.92}
 
 .my-rank-banner{background:linear-gradient(135deg,rgba(245,158,11,.14),rgba(245,158,11,.05));border:1px solid rgba(245,158,11,.3);color:var(--warning);padding:13px 16px;border-radius:14px;font-size:12px;font-weight:800;margin-bottom:18px;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
 .welcome-message{background:linear-gradient(135deg,rgba(59,130,246,.16),rgba(59,130,246,.04));border:1px solid rgba(59,130,246,.3);color:var(--text);padding:14px 18px;border-radius:14px;font-size:13px;font-weight:700;margin-bottom:18px}
@@ -602,6 +604,15 @@ body,input,select,button,textarea{font-family:'Cairo',sans-serif}
 @media(max-width:430px){.app-shell > main.container{padding-top:154px}}
 
 
+/* ===== Topbar spacing fix (all pages using .attendance-page-shell) =====
+   The global rule above makes the topbar position:fixed, while the rule
+   below strips main.container's top padding down to 18px. Only Home
+   overrode the topbar back to sticky, so on Employee Management (and the
+   current/left/new/detail pages) the fixed topbar sat on top of the hero
+   title + description. Keep the topbar in flow (sticky) everywhere the
+   short 18px padding is used, so nothing is covered. */
+.app-shell.attendance-page-shell > .topbar{position:sticky;top:0}
+
 /* ===== Final spacing fix: remove the excessive gap below the fixed topbar ===== */
 .attendance-page-shell > main.container{
   padding-top:18px !important;
@@ -745,6 +756,7 @@ body,input,select,button,textarea{font-family:'Cairo',sans-serif}
   --success:#2E9A5C;
   --warning:#D08A2E;
   --danger:#C6473F;
+  --role-creator:#044B8C;
 
   /* Table language — grid-based, like a spreadsheet */
   --tbl-head:#1D2730;
@@ -793,6 +805,7 @@ body,input,select,button,textarea{font-family:'Cairo',sans-serif}
   --soft:#0B0B0B;
   --hover:rgba(255,255,255,.045);
   --shadow:0 14px 34px rgba(0,0,0,.75);
+  --role-creator:#69B0FF;
 
   --tbl-head:#141414;
   --tbl-head-text:#EDF2F9;
@@ -1030,3 +1043,80 @@ html[data-theme="dark"] .reports-page table:not(.pr-table) td{
 .glass:after{content:"";position:absolute;right:28px;top:-24px;width:74px;height:74px;border-radius:20px;border:1px solid rgba(255,255,255,.35);background:linear-gradient(135deg,rgba(255,255,255,.28),rgba(255,255,255,.03));transform:rotate(12deg);z-index:-1}
 html[data-theme="dark"] .visual-side{background:linear-gradient(145deg,#020611,#062d58 48%,#075a73)}
 html[data-theme="dark"] .glass{background:rgba(14,20,30,.82);box-shadow:0 26px 70px rgba(0,0,0,.4)}
+/* Protected primary-admin account settings */
+.hero #my-account-btn{white-space:nowrap;align-self:center}
+#my-account-error.error{display:block}
+.import-history-table td,.import-history-table th{white-space:nowrap}
+@media(max-width:680px){.hero #my-account-btn{align-self:flex-start;margin-top:8px}.import-history-table{font-size:11px}}
+
+.kpi-grid .kpi-link-wrap{cursor:pointer;min-width:0}.kpi-card2.left-kpi{--accent:#C1554F!important}.kpi-card2.new-kpi{--accent:#3C9A63!important}.kpi-link-wrap:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:20px}
+
+/* Employees navigation dropdown */
+.employee-nav-menu{position:absolute;top:calc(100% + 8px);right:0;min-width:210px;padding:7px;background:var(--panel);border:1px solid var(--line);border-radius:14px;box-shadow:0 18px 45px rgba(15,23,42,.14);display:none;z-index:1000}
+.employee-nav-menu.open{display:block}
+.employee-nav-wrap{position:relative}
+.employee-nav-menu a{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:9px;color:var(--text);text-decoration:none;font-size:11px;font-weight:800;white-space:nowrap}
+.employee-nav-menu a:hover,.employee-nav-menu a.active{background:var(--soft);color:var(--primary)}
+.employee-nav-menu .menu-icon{width:18px;height:18px;display:grid;place-items:center;color:var(--muted)}
+.employee-nav-menu a:hover .menu-icon{color:var(--primary)}
+.supervisor-shift-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.supervisor-shift-options label{display:flex;align-items:center;gap:9px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:var(--soft);cursor:pointer;font-size:12px;font-weight:800}
+.supervisor-shift-options label:has(input:checked){border-color:var(--primary);background:rgba(6,91,171,.08);color:var(--primary)}
+.supervisor-shift-options input{accent-color:var(--primary)}
+@media(max-width:760px){.supervisor-shift-options{grid-template-columns:1fr 1fr}.employee-nav-menu{right:auto;left:0}}
+/* Full employee detail page: content should never be clipped by the old modal-oriented rules. */
+.employee-detail-page .container{padding-bottom:40px}
+.employee-detail-page .panel{overflow:visible}
+
+.departure-modal{position:fixed;inset:0;background:rgba(8,25,45,.38);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;padding:20px;z-index:5000}.departure-modal.open{display:flex}.departure-modal-card{width:min(620px,100%);background:var(--panel);border:1px solid var(--line);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.2);padding:22px}.departure-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:22px}.departure-modal-head h2{margin:4px 0;font-size:20px}.departure-modal-head p{margin:0;color:var(--muted);font-size:11px;font-weight:700}.departure-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.departure-field{display:flex;flex-direction:column;gap:7px}.departure-field label{font-size:11px;font-weight:800;color:var(--muted)}.departure-field input,.departure-field select{height:46px;border:1px solid var(--line);border-radius:11px;background:var(--soft);color:var(--text);padding:0 12px;font-family:'Cairo',sans-serif;font-weight:700;outline:none}.departure-field input:focus,.departure-field select:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(6,91,171,.08)}.departure-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}.departure-error{min-height:20px;color:var(--danger);font-size:11px;font-weight:800;margin-top:12px}.departure-btn{color:var(--primary)!important}@media(max-width:680px){.departure-form-grid{grid-template-columns:1fr}.departure-modal-card{padding:18px}.departure-modal-actions{flex-direction:column-reverse}.departure-modal-actions button{width:100%}}
+
+/* IEMS product credit footer */
+.iems-credit-footer{width:100%;display:flex;align-items:center;justify-content:center;text-align:center;margin:28px auto 0;padding:18px 12px 10px;box-sizing:border-box;font-family:'Cairo',Arial,sans-serif;line-height:1.55}
+.iems-credit-footer .credit-copy{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;white-space:nowrap}
+.iems-credit-footer .credit-year{font-size:11px;font-weight:800;color:var(--muted)}
+.iems-credit-footer .credit-by{font-size:10px;font-weight:700;color:var(--muted)}
+.iems-credit-footer .credit-name{font-size:12px;font-weight:900;letter-spacing:.15px;color:var(--primary)}
+html[data-theme="dark"] .iems-credit-footer .credit-year,html[data-theme="dark"] .iems-credit-footer .credit-by{color:rgba(255,255,255,.58)}
+html[data-theme="dark"] .iems-credit-footer .credit-name{color:#4fa3e8}
+.login-form-side .iems-credit-footer{margin-top:30px;flex:none}
+@media(max-width:760px){.iems-credit-footer{margin-top:20px;padding-top:12px}.iems-credit-footer .credit-year{font-size:10px}.iems-credit-footer .credit-by{font-size:9px}.iems-credit-footer .credit-name{font-size:11px}}
+
+/* KPI links: keep the original KPI card itself as the visual surface. */
+.kpi-grid>.kpi-link-wrap{min-height:0!important;padding:0!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;display:block!important;overflow:visible!important}.kpi-grid>.kpi-link-wrap:hover{transform:none!important;box-shadow:none!important;border-color:transparent!important}.kpi-grid>.kpi-link-wrap>.kpi-card2{width:100%;box-sizing:border-box}
+
+/* Home KPI layout: 12 cards in one desktop grid — exactly 4 columns x 3 rows. */
+@media(min-width:761px){
+  #modern-dashboard #kpi-grid{
+    display:grid!important;
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:16px!important;
+  }
+  #modern-dashboard #kpi-grid > .kpi-link-wrap,
+  #modern-dashboard #kpi-grid > .kpi-card2{
+    min-width:0!important;
+  }
+}
+#modern-dashboard #kpi-grid > .kpi-link-wrap::before,
+#modern-dashboard #kpi-grid > .kpi-card2::before{
+  display:none!important;
+  content:none!important;
+}
+
+@media(min-width:1051px){.report-filter-grid{display:grid!important;grid-template-columns:1fr 1fr 1.15fr 1.15fr 1fr!important;align-items:end}.report-filter-grid .filter-apply{min-width:0;max-width:none}}
+
+/* Departure modal: the global mobile rule hides every .ghost-btn (it is meant
+   for the hero "back" link). That also hid the modal's Cancel button. */
+.departure-modal .ghost-btn{display:inline-flex!important;align-items:center;justify-content:center}
+.departure-field input[type=date]{direction:ltr;text-align:right;min-width:0;width:100%;box-sizing:border-box;font-family:'Cairo',sans-serif}
+.departure-field select{width:100%;box-sizing:border-box}
+.departure-modal-card{max-height:calc(100vh - 40px);overflow-y:auto}
+.departure-modal .primary-btn,.departure-modal .ghost-btn{height:44px;padding:0 20px;border-radius:11px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;line-height:1;white-space:nowrap}
+.departure-modal .primary-btn{border:1px solid var(--primary);background:var(--primary);color:#fff}
+.departure-modal .primary-btn:hover{filter:brightness(1.08)}
+.departure-modal .primary-btn:disabled{opacity:.6;cursor:not-allowed}
+.departure-modal .ghost-btn{border:1px solid var(--line);background:var(--panel);color:var(--text)}
+.departure-modal-actions{align-items:center}
+.departure-modal-head .icon-btn{flex:0 0 auto}
+/* The name <td> carries .emp-name-cell (display:flex) which stops it behaving
+   as a table cell: text floated up and the row background/border broke. */
+.emp-mgmt-table td.emp-name-cell{display:table-cell!important;vertical-align:middle}

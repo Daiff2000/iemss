@@ -1,8 +1,14 @@
 const token = sessionStorage.getItem('iems_token');
 const userRaw = sessionStorage.getItem('iems_user');
-if (!token || !userRaw) window.location.href = '/index.html';
-const user = JSON.parse(userRaw);
-if (user.role !== 'admin') window.location.href = '/home.html';
+// Guard: a redirect is asynchronous, so the rest of this file used to keep
+// running with user === null and throw a TypeError, leaving a half-built
+// broken page on screen instead of navigating away. useLegacyScripts wraps
+// every legacy script in a function, so `return` here is valid and safe.
+if (!token || !userRaw) { window.location.href = '/index.html'; return; }
+let user = null;
+try { user = JSON.parse(userRaw); } catch (_) {}
+if (!user || !user.role) { sessionStorage.clear(); window.location.href = '/index.html'; return; }
+if (!['system_creator','admin','supervisor'].includes(user.role)) { window.location.href = '/home.html'; return; }
 
 const $ = id => document.getElementById(id);
 function authHeaders() { return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }; }
@@ -31,7 +37,7 @@ $('theme-toggle').addEventListener('click', () => {
 updateThemeIcon();
 
 $('chip-name').textContent = user.name;
-$('chip-role').textContent = `ID: ${user.id} · مدير`;
+$('chip-role').textContent = user.role === 'system_creator' ? `ID: ${user.id} · منشئ النظام` : user.role === 'admin' ? `ID: ${user.id} · مدير` : `ID: ${user.id} · مشرف · Shift ${user.shift || '-'}`;
 $('chip-avatar').textContent = (user.name || '?').trim()[0] || '?';
 $('logout-btn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = '/index.html'; });
 
@@ -44,21 +50,30 @@ function showError(msg) {
   el.textContent = msg;
 }
 
-async function loadStages() {
+async function loadFilters() {
   try {
-    // Keep the Reports stage selector identical to the Home/Attendance
-    // selector: same source, same "all" default, and exclude the attendance
-    // pseudo-stage from the performance filters.
-    const data = await api('/api/employee/stages');
-    const sel = $('rep-stage');
-    const stages = (data.stages || []).filter(s => String(s).trim() !== 'الحضور');
-    sel.innerHTML = '<option value="__ALL__">كل المراحل</option>' +
-      stages.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-    sel.value = '__ALL__';
+    const [stageData, shiftData, dateData] = await Promise.all([
+      api('/api/employee/stages'),
+      api('/api/employee/shifts'),
+      api('/api/employee/dates')
+    ]);
+    const stageSel = $('rep-stage');
+    const stages = (stageData.stages || []).filter(s => String(s).trim() !== 'الحضور');
+    stageSel.innerHTML = '<option value="__ALL__">كل المراحل</option>' + stages.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    const shiftSel = $('rep-shift');
+    let shifts = shiftData.shifts || [];
+    if (user.role === 'supervisor') shifts = [user.shift].filter(Boolean);
+    if (user.role === 'employee') shifts = [user.shift].filter(Boolean);
+    shiftSel.innerHTML = '<option value="__ALL__">كل الشيفتات</option>' + shifts.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+    if (user.role === 'supervisor' || user.role === 'employee') {
+      [...shiftSel.options].forEach(o => o.selected = o.value === (user.shift || '__ALL__'));
+    } else shiftSel.value = '__ALL__';
+    const dates = dateData.dates || [];
+    if (dates.length) { $('rep-from').min=dates[0]; $('rep-from').max=dates.at(-1); $('rep-to').min=dates[0]; $('rep-to').max=dates.at(-1); $('rep-from').value=dates[Math.max(0,dates.length-7)]; $('rep-to').value=dates.at(-1); }
   } catch (err) {
-    // non-fatal: stage dropdown stays on the same Home-style all default
-    const sel = $('rep-stage');
-    if (sel) sel.innerHTML = '<option value="__ALL__">كل المراحل</option>';
+    const stageSel=$('rep-stage'), shiftSel=$('rep-shift');
+    if(stageSel) stageSel.innerHTML='<option value="__ALL__">كل المراحل</option>';
+    if(shiftSel) shiftSel.innerHTML='<option value="__ALL__">كل الشيفتات</option>';
   }
 }
 
@@ -90,19 +105,26 @@ async function runReport() {
   const stages = [...$('rep-stage').selectedOptions].map(o=>o.value).filter(v=>v&&v!=='__ALL__');
   showError('');
 
-  if (!from || !to) { showError('من فضلك اختر التاريخ من والي.'); return; }
+  if (!from || !to) { showError('من فضلك اختر التاريخ من وإلى.'); return; }
   if (from > to) { showError('تاريخ "من" يجب أن يكون قبل تاريخ "إلى".'); return; }
+  if (!stages.length) { showError('اختيار المرحلة شرط أساسي لإنشاء تقرير أرقام الموظفين. بدون اختيار مرحلة ستظهر فقط قائمة Top 5 لكل المراحل.'); return; }
 
   $('rep-run-btn').disabled = true;
   $('rep-run-btn').innerHTML = '<span class="report-spinner" aria-hidden="true"></span>';
   $('rep-run-btn').setAttribute('aria-label', 'جارٍ إنشاء التقرير');
   try {
-    const q=new URLSearchParams({from,to});stages.forEach(v=>q.append('stage',v));const data = await api(`/api/admin/report/attendance?${q.toString()}`);
+    const q=new URLSearchParams({from,to});
+    stages.forEach(v=>q.append('stage',v));
+    const shifts = [...$('rep-shift').selectedOptions].map(o=>o.value).filter(v=>v&&v!=='__ALL__');
+    if (user.role === 'supervisor') q.set('shift', user.shift || '');
+    else if (user.role === 'admin' || user.role === 'system_creator') shifts.forEach(v=>q.append('shift',v));
+    else if (user.role === 'employee') q.set('shift', user.shift || '');
+    const data = await api(`/api/admin/report/attendance?${q.toString()}`);
     lastResult = data;
     renderTable(data.employees);
     const stageLabel = stages.length ? stages.join(' + ') : 'كل المراحل';
     $('rep-summary').textContent = `${data.total} موظف اشتغل من ${from} إلى ${to} — المرحلة: ${stageLabel}`;
-    $('rep-target-head').textContent = stages.length ? `تارجت ${stages.join(' + ')}` : 'إجمالي التارجت';
+    $('rep-target-head').textContent = stages.length ? `تارجت ${stages.join(' + ')}` : '';
     $('rep-excel-btn').disabled = data.total === 0;
     $('rep-pdf-btn').disabled = data.total === 0;
   } catch (err) {
@@ -138,12 +160,12 @@ function exportExcel() {
   if (!lastResult || !lastResult.employees.length) return;
   if(!window.XLSX){
     const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    const stageLabel = stageDisplay(lastResult.stage) ? `تارجت ${stageDisplay(lastResult.stage)}` : 'إجمالي التارجت';
+    const stageLabel = stageDisplay(lastResult.stage) ? `تارجت ${stageDisplay(lastResult.stage)}` : '';
     const rows=[['الاسم','الشركة','الشيفت','القسم',stageLabel],...lastResult.employees.map(e=>[e.name,e.company||'',e.shift||'',e.department||'',Number(e.stage_target)||0])];
     const xml=`<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Report"><Table>${rows.map(r=>'<Row>'+r.map(v=>`<Cell><Data ss:Type="${typeof v==='number'?'Number':'String'}">${esc(v)}</Data></Cell>`).join('')+'</Row>').join('')}</Table></Worksheet></Workbook>`;
     const blob=new Blob([xml],{type:'application/vnd.ms-excel'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=reportFilename('xls');a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);return;
   }
-  const stageLabel = stageDisplay(lastResult.stage) ? `تارجت ${stageDisplay(lastResult.stage)}` : 'إجمالي التارجت';
+  const stageLabel = stageDisplay(lastResult.stage) ? `تارجت ${stageDisplay(lastResult.stage)}` : '';
   const rows = lastResult.employees.map(e => ({
     'الاسم': e.name,
     'الشركة': e.company || '',
@@ -176,7 +198,7 @@ async function exportPdf() {
   btn.textContent = 'جاري إنشاء PDF...';
 
   const stageLabel = stageDisplay(lastResult.stage) || 'كل المراحل';
-  const targetColLabel = stageDisplay(lastResult.stage) ? `تارجت ${stageDisplay(lastResult.stage)}` : 'إجمالي التارجت';
+  const targetColLabel = stageDisplay(lastResult.stage) ? `تارجت ${stageDisplay(lastResult.stage)}` : '';
   const totalEmployees = Number(lastResult.total) || lastResult.employees.length;
   // Per-employee target figures are daily/period percentages, not additive counts —
   // summing them across employees produces a meaningless number, so the report no
@@ -357,23 +379,19 @@ $('rep-run-btn').addEventListener('click', runReport);
 $('rep-excel-btn').addEventListener('click', exportExcel);
 $('rep-pdf-btn').addEventListener('click', exportPdf);
 
-// Default the "to" date to today and "from" to 7 days ago, for convenience.
-(function setDefaults() {
-  const today = new Date();
-  const weekAgo = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000);
-  const fmt = d => d.toISOString().slice(0, 10);
-  $('rep-to').value = fmt(today);
-  $('rep-from').value = fmt(weekAgo);
-})();
+// Date defaults and quick ranges match the Home page.
+function setReportRange(kind) {
+  const fromEl=$('rep-from'), toEl=$('rep-to');
+  const last = toEl.value || new Date().toISOString().slice(0,10);
+  const d = new Date(last+'T00:00:00');
+  const iso=x=>x.toISOString().slice(0,10);
+  if(kind==='all'){ if(fromEl.min) fromEl.value=fromEl.min; toEl.value=toEl.max||last; }
+  else if(kind==='today'){ fromEl.value=last; toEl.value=last; }
+  else { const x=new Date(d); x.setDate(d.getDate()-(kind==='week'?6:30)); fromEl.value=x<new Date((fromEl.min||'1900-01-01')+'T00:00:00')?(fromEl.min||iso(x)):iso(x); toEl.value=last; }
+}
+document.querySelectorAll('[data-report-range]').forEach(b=>b.addEventListener('click',()=>setReportRange(b.dataset.reportRange)));
 
-loadStages();
-// Same multi-select behavior as the Home/Attendance filters.
-$('rep-stage')?.addEventListener('change', () => {
-  const el = $('rep-stage');
-  const picked = [...el.selectedOptions].map(o => o.value);
-  if (picked.includes('__ALL__') && picked.length > 1) {
-    [...el.options].forEach(o => o.selected = o.value === '__ALL__');
-  } else if (picked.some(v => v !== '__ALL__')) {
-    [...el.options].forEach(o => { if (o.value === '__ALL__') o.selected = false; });
-  }
-});
+loadFilters();
+
+$('rep-shift')?.addEventListener('change', () => { const el=$('rep-shift'); const picked=[...el.selectedOptions].map(o=>o.value); if(picked.includes('__ALL__')&&picked.length>1){[...el.options].forEach(o=>o.selected=o.value==='__ALL__')} else if(picked.some(v=>v!=='__ALL__')) {[...el.options].forEach(o=>{if(o.value==='__ALL__')o.selected=false})}});
+$('rep-stage')?.addEventListener('change', () => { const el=$('rep-stage'); const picked=[...el.selectedOptions].map(o=>o.value); if(picked.includes('__ALL__')&&picked.length>1){[...el.options].forEach(o=>o.selected=o.value==='__ALL__')} else if(picked.some(v=>v!=='__ALL__')) {[...el.options].forEach(o=>{if(o.value==='__ALL__')o.selected=false})}});

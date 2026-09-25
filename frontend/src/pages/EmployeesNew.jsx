@@ -1,0 +1,1 @@
+import LegacyPage from '../components/LegacyPage';import bodyHtml from '../legacy-html/employees-new.body.html?raw';import pageStyleCss from '../legacy-page-styles/admin-employees.styles.css?raw';export default function EmployeesNew(){return <LegacyPage bodyHtml={bodyHtml} pageStyleCss={pageStyleCss} scripts={['/legacy/app-employee-groups.js','/legacy/app-shell.js']}/>;}

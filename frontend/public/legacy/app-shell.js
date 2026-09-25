@@ -1,5 +1,13 @@
 // ---- Welcome splash screen (shown once, right after login) ----
+// To change the splash picture: replace /public/splash-bg.jpg with your own
+// image (same file name), or point SPLASH_IMAGE at another file in /public.
+// Wide (landscape) photos ~1920x1080 work best. Set SPLASH_IMAGE = '' to go
+// back to the plain gradient. SPLASH_DIM controls how dark the tint on top of
+// the picture is (0 = none, 1 = black) so the greeting stays readable.
 (() => {
+  const SPLASH_IMAGE = '/splash-bg.jpg';
+  const SPLASH_DIM = 0.45;
+  const SPLASH_FOCUS = 'center';   // e.g. 'left center', '30% 50%'
   const path = window.location.pathname.split('/').pop() || 'index.html';
   if (path !== 'home.html') return;
   if (sessionStorage.getItem('iems_show_welcome') !== '1') return;
@@ -9,13 +17,25 @@
   try { user = JSON.parse(sessionStorage.getItem('iems_user') || 'null'); } catch (_) {}
   const isDark = document.documentElement.dataset.theme === 'dark' || (localStorage.getItem('iems-theme') === 'dark');
   const name = (user && user.name) ? user.name : '';
-  const roleLabel = user && user.role === 'admin' ? 'مدير النظام' : user && user.role === 'supervisor' ? 'مشرف' : 'موظف';
+  const roleLabel = user && user.role === 'system_creator' ? 'منشئ النظام' : user && user.role === 'admin' ? 'مدير النظام' : user && user.role === 'supervisor' ? 'مشرف' : 'موظف';
 
-  const style = document.createElement('style');
+  // Scripts are re-executed on every client-side visit to this page, so guard
+  // the <style> injection — otherwise identical stylesheets pile up in <head>.
+  const style = document.getElementById('iems-splash-style') || document.createElement('style');
+  style.id = 'iems-splash-style';
   style.textContent = `
     #iems-splash{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;
       background:${isDark ? 'linear-gradient(135deg,#0b1220,#101a2e)' : 'linear-gradient(135deg,#065bab,#0a8fd8)'};
+      overflow:hidden;
       animation:iemsSplashOut .6s ease-in 1.7s forwards;}
+    #iems-splash > *{position:relative;z-index:2}
+    /* picture layer (slow settle-in zoom) + tint layer so text stays readable */
+    #iems-splash:before{content:"";position:absolute;inset:0;z-index:0;display:${SPLASH_IMAGE ? 'block' : 'none'};
+      background:url('${SPLASH_IMAGE}') ${SPLASH_FOCUS}/cover no-repeat;
+      transform:scale(1.08);animation:iemsSplashZoom 2.4s ease-out forwards}
+    #iems-splash:after{content:"";position:absolute;inset:0;z-index:1;display:${SPLASH_IMAGE ? 'block' : 'none'};
+      background:radial-gradient(ellipse at center,rgba(3,20,45,${Math.max(0, SPLASH_DIM - 0.1)}) 0%,rgba(3,20,45,${Math.min(1, SPLASH_DIM + 0.25)}) 100%)}
+    @keyframes iemsSplashZoom{to{transform:scale(1)}}
     #iems-splash .iems-splash-logo{display:flex;align-items:center;justify-content:center;
       animation:iemsSplashPop .55s cubic-bezier(.34,1.56,.64,1) both;}
     #iems-splash .iems-splash-logo img{width:auto;height:54px;max-width:220px;object-fit:contain;filter:drop-shadow(0 12px 26px rgba(0,0,0,.35))}
@@ -30,20 +50,40 @@
     @keyframes iemsSplashBlink{0%,80%,100%{opacity:.3}40%{opacity:1}}
     @keyframes iemsSplashOut{to{opacity:0;visibility:hidden}}
   `;
-  document.head.appendChild(style);
+  if (!style.isConnected) document.head.appendChild(style);
 
   const el = document.createElement('div');
   el.id = 'iems-splash';
+  // Absolute path: a relative "logo-dark.png" breaks on any route that is not
+  // at the site root.
   el.innerHTML = `
-    <div class="iems-splash-logo"><img src="logo-dark.png" alt="IEMS"></div>
+    <div class="iems-splash-logo"><img src="/logo-dark.png" alt="IEMS"></div>
     <h1>أهلاً بك${name ? '، ' + name : ''} 👋</h1>
     <p>${roleLabel} · جارٍ تجهيز لوحة التحكم...</p>
     <div class="iems-splash-dots"><span></span><span></span><span></span></div>
   `;
   el.addEventListener('click', () => el.remove());
-  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(el));
-  if (document.readyState !== 'loading') document.body.appendChild(el);
-  setTimeout(() => { if (el.isConnected) el.remove(); }, 2500);
+  // Both handlers below used to fire in some load orders, appending the splash
+  // twice (the second copy never animated out and covered the whole page).
+  const mount = () => {
+    if (el.isConnected) return;
+    document.body.appendChild(el);
+    // removal is timed from the moment the splash actually appears
+    setTimeout(() => { if (el.isConnected) el.remove(); }, 2500);
+  };
+  const mountWhenReady = () => {
+    if (!SPLASH_IMAGE) return mount();
+    // Give the picture up to 700ms to load (it is normally already cached from
+    // the login page); after that show the splash anyway on the gradient.
+    let done = false;
+    const go = () => { if (done) return; done = true; mount(); };
+    const img = new Image();
+    img.onload = go; img.onerror = go;
+    img.src = SPLASH_IMAGE;
+    setTimeout(go, 700);
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mountWhenReady, { once: true });
+  else mountWhenReady();
 })();
 
 (() => {
@@ -63,37 +103,83 @@
     a.setAttribute('aria-current', active ? 'page' : 'false');
   });
 
-  const adminOnly = document.querySelectorAll('[data-nav-role="admin"]');
-  adminOnly.forEach(el => { el.style.display = user?.role === 'admin' ? 'inline-flex' : 'none'; });
-  const uploader = document.querySelectorAll('[data-nav-role="supervisor"]');
-  uploader.forEach(el => { el.style.display = (user?.role === 'admin' || user?.role === 'supervisor') ? 'inline-flex' : 'none'; });
+  // Employees is a section, not a single destination. Convert the nav item into
+// an icon/text trigger with a compact dropdown containing the employee views.
+(() => {
+  const link = document.getElementById('nav-employees');
+  if (!link || link.dataset.employeeMenuReady === '1') return;
+  link.dataset.employeeMenuReady = '1';
+  const wrap = document.createElement('div');
+  wrap.className = 'employee-nav-wrap';
+  link.parentNode.insertBefore(wrap, link);
+  wrap.appendChild(link);
+  link.href = '#';
+  link.setAttribute('aria-haspopup','menu');
+  link.setAttribute('aria-expanded','false');
+  const menu = document.createElement('div');
+  menu.className = 'employee-nav-menu';
+  menu.innerHTML = `
+    <a href="/admin-employees.html"><span class="menu-icon">◉</span><span>كل الموظفين</span></a>
+    <a href="/employees-current.html"><span class="menu-icon">✓</span><span>الموظفون الحاليون</span></a>
+    <a href="/employees-left.html"><span class="menu-icon">↗</span><span>الموظفون المغادرون</span></a>
+    <a href="/employees-new.html"><span class="menu-icon">+</span><span>الموظفون الجدد</span></a>`;
+  wrap.appendChild(menu);
+  const close = () => { menu.classList.remove('open'); link.setAttribute('aria-expanded','false'); };
+  link.addEventListener('click', e => { e.preventDefault(); const open=menu.classList.toggle('open'); link.setAttribute('aria-expanded',String(open)); });
+  document.addEventListener('click', e => { if(!wrap.contains(e.target)) close(); });
+  menu.querySelectorAll('a').forEach(a => {
+    if (a.getAttribute('href') === location.pathname) a.classList.add('active');
+    a.addEventListener('click', close);
+  });
+})();
 
-  const importLink = document.getElementById('nav-import');
-  if (importLink) importLink.style.display = (user?.role === 'admin' || user?.role === 'supervisor') ? 'inline-flex' : 'none';
-  const manualLink = document.getElementById('nav-manual-entry');
-  if (manualLink) manualLink.style.display = user?.role === 'admin' ? 'inline-flex' : 'none';
-  const reportsLink = document.getElementById('nav-reports');
-  if (reportsLink) reportsLink.style.display = user?.role === 'admin' ? 'inline-flex' : 'none';
-  const employeesLink = document.getElementById('nav-employees');
-  if (employeesLink) employeesLink.style.display = (user?.role === 'admin' || user?.role === 'supervisor') ? 'inline-flex' : 'none';
-  const homeLink = document.getElementById('nav-home');
-  if (homeLink) homeLink.style.display = user?.role === 'employee' ? 'none' : 'inline-flex';
-
-  // Language toggle (AR/EN) — shared across every inner page that loads this file.
-  const langToggle = document.getElementById('lang-toggle');
-  if (langToggle) {
-    const syncLangLabel = () => {
-      const lang = window.IEMS_I18N ? window.IEMS_I18N.currentLang() : 'ar';
-      langToggle.textContent = lang === 'ar' ? 'EN' : 'AR';
-    };
-    langToggle.addEventListener('click', () => {
-      if (window.IEMS_I18N) window.IEMS_I18N.toggle();
-      syncLangLabel();
-    });
-    // i18n.js applies on DOMContentLoaded; this script also runs after DOM
-    // is parsed, so IEMS_I18N is already defined here.
-    syncLangLabel();
+// ---- Single permission table for the whole app ----
+  // This must match the guard at the top of each page script AND the role
+  // middleware on the APIs that page calls. Previously three different files
+  // disagreed (app-home.js showed Reports/Manual Entry to supervisors,
+  // this file hid Reports from them, and the pages themselves allowed
+  // supervisors on Reports but not Manual Entry) — so links either vanished
+  // or bounced the user back to the home page.
+  // Unified product credit footer on every authenticated page.
+  const pageMain = document.querySelector('main.container');
+  if (pageMain && !pageMain.querySelector('.iems-credit-footer')) {
+    const oldLegal = pageMain.querySelector('.legal');
+    const footer = document.createElement('footer');
+    footer.className = 'iems-credit-footer';
+    footer.innerHTML = '<div class="credit-copy"><div class="credit-year">© 2026 IEMS</div><div class="credit-by">Product Design &amp; Development by</div><div class="credit-name">Mohamed H. Daif</div></div>';
+    if (oldLegal) oldLegal.replaceWith(footer); else pageMain.appendChild(footer);
   }
+
+  const role = user?.role || null;
+  const CREATOR = role === 'system_creator';
+  const ADMIN_UP = CREATOR || role === 'admin';
+  const SUPERVISOR_UP = ADMIN_UP || role === 'supervisor';
+
+  const NAV_ACCESS = {
+    'nav-home': !!role && role !== 'employee',
+    'nav-employees': SUPERVISOR_UP,   // page: supervisor+ · API: requireSupervisor
+    'nav-import': SUPERVISOR_UP,      // page: supervisor+ · API: requireUploader
+    'nav-reports': SUPERVISOR_UP,        // reports are for supervisors and admins
+    'nav-manual-entry': ADMIN_UP,     // page: admin+     · API: requireAdmin
+    'nav-audit': CREATOR,             // API: requireSystemCreator
+    'nav-themes': CREATOR,            // API: requireSystemCreator
+  };
+  Object.entries(NAV_ACCESS).forEach(([id, allowed]) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = allowed ? 'inline-flex' : 'none';
+  });
+
+  // Fallback for any nav item that carries only a data-nav-role attribute
+  // (some pages' markup labels the same link differently, e.g. manual entry is
+  // tagged "supervisor" on the import page and "admin" on the home page). The
+  // id-based table above wins; this only covers untagged extras.
+  const ROLE_ATTR_ACCESS = { admin: ADMIN_UP, supervisor: SUPERVISOR_UP, creator: CREATOR };
+  document.querySelectorAll('[data-nav-role]').forEach(el => {
+    if (el.id && el.id in NAV_ACCESS) return;
+    const allowed = ROLE_ATTR_ACCESS[el.getAttribute('data-nav-role')];
+    if (allowed !== undefined) el.style.display = allowed ? 'inline-flex' : 'none';
+  });
+
 })();
 
 

@@ -1,9 +1,11 @@
 /* Employee management page — Top 5 highlight */
-.emp-row-top5{background:linear-gradient(90deg,rgba(245,158,11,.10),transparent 65%)}
-.emp-row-top5:hover{background:linear-gradient(90deg,rgba(245,158,11,.18),transparent 65%)}
+.emp-row-top5{background:linear-gradient(90deg,color-mix(in srgb,var(--warning) 10%,transparent),transparent 65%)}
+.emp-row-top5:hover{background:linear-gradient(90deg,color-mix(in srgb,var(--warning) 18%,transparent),transparent 65%)}
 .emp-name-cell{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.top5-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900;color:#92400e;background:linear-gradient(135deg,#fde68a,#f59e0b);border-radius:999px;padding:2px 9px;line-height:1.6;box-shadow:0 2px 6px rgba(245,158,11,.35)}
+.top5-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:900;color:var(--warning);background:color-mix(in srgb,var(--warning) 18%,var(--panel));border:1px solid color-mix(in srgb,var(--warning) 32%,var(--line));border-radius:999px;padding:2px 9px;line-height:1.6;box-shadow:0 2px 6px color-mix(in srgb,var(--warning) 20%,transparent)}
 .status-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;border-radius:999px;padding:3px 11px;line-height:1.6;white-space:nowrap}
-.status-badge.status-active{color:#166534;background:rgba(34,197,94,.15)}
-.status-badge.status-left{color:#991b1b;background:rgba(239,68,68,.14)}
-.status-badge.status-archive{color:#475569;background:rgba(100,116,139,.16)}
+.status-badge.status-active{color:var(--success);background:color-mix(in srgb,var(--success) 15%,transparent)}
+.status-badge.status-left{color:var(--danger);background:color-mix(in srgb,var(--danger) 14%,transparent)}
+.status-badge.status-archive{color:var(--muted);background:color-mix(in srgb,var(--muted) 16%,transparent)}
+
+.employee-groups-nav{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:18px}.employee-group-card{display:flex;flex-direction:column;gap:5px;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:var(--shadow);text-decoration:none;color:var(--text)}.employee-group-card strong{font-size:13px}.employee-group-card span{font-size:10px;color:var(--muted);font-weight:700}.role-readonly{font-size:11px;font-weight:800;color:var(--muted)}@media(max-width:900px){.employee-groups-nav{grid-template-columns:repeat(2,1fr)}}@media(max-width:560px){.employee-groups-nav{grid-template-columns:1fr}}

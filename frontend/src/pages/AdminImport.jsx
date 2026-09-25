@@ -7,7 +7,7 @@ export default function AdminImport() {
     <LegacyPage
       bodyHtml={bodyHtml}
       pageStyleCss={pageStyleCss}
-      scripts={[ '/legacy/i18n.js', '/legacy/app-admin-import.js', '/legacy/app-shell.js']}
+      scripts={[  '/legacy/app-admin-import.js', '/legacy/app-shell.js']}
     />
   );
 }

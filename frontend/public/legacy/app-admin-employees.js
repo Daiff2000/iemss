@@ -1,12 +1,19 @@
+const $ = id => document.getElementById(id);
 const token = sessionStorage.getItem('iems_token');
 const userRaw = sessionStorage.getItem('iems_user');
-if (!token || !userRaw) window.location.href = '/index.html';
-const user = JSON.parse(userRaw);
-if (user.role !== 'admin' && user.role !== 'supervisor') window.location.href = '/home.html';
+let user = null;
+try { user = userRaw ? JSON.parse(userRaw) : null; } catch (_) {}
+user = user || {};
+// See the note in app-admin-import.js: redirect, then stop — don't keep
+// building a page the user is about to be navigated away from.
+if (!token || !user.role) { window.location.href = '/index.html'; return; }
+if (!['system_creator','admin','supervisor'].includes(user.role)) { window.location.href = '/home.html'; return; }
 const isSupervisor = user.role === 'supervisor';
-if (isSupervisor && $('employees-page-desc')) $('employees-page-desc').textContent = 'عرض الموظفين وتغيير الصلاحية بين موظف ومشرف فقط.';
-
-const $ = id => document.getElementById(id);
+const isCreator = user.role === 'system_creator';
+const isAdmin = user.role === 'admin';
+if (isSupervisor && $('employees-page-desc')) {
+  $('employees-page-desc').textContent = 'عرض بيانات الموظفين فقط. لا تتوفر صلاحيات تعديل أو حذف أو تغيير الصلاحيات.';
+}
 function authHeaders() { return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }; }
 async function api(path, opts = {}) {
   const res = await fetch(path, { ...opts, headers: { ...authHeaders(), ...(opts.headers || {}) } });
@@ -15,9 +22,57 @@ async function api(path, opts = {}) {
   if (!res.ok) throw new Error(data.error || 'حدث خطأ');
   return data;
 }
+
+// ---- Protected primary-admin self account settings ----
+const myAccountBtn = $('my-account-btn');
+const myAccountModal = $('my-account-modal');
+const myAccountError = $('my-account-error');
+function openMyAccount() {
+  if (!myAccountModal) return;
+  $('my-name').value = user.name || '';
+  $('my-current-password').value = '';
+  $('my-new-password').value = '';
+  myAccountError.textContent = '';
+  myAccountError.className = 'modal-error';
+  myAccountModal.classList.add('open');
+}
+function closeMyAccount() { if (myAccountModal) myAccountModal.classList.remove('open'); }
+if (myAccountBtn) myAccountBtn.addEventListener('click', openMyAccount);
+if ($('my-account-cancel')) $('my-account-cancel').addEventListener('click', closeMyAccount);
+if (myAccountModal) myAccountModal.addEventListener('click', e => { if (e.target === myAccountModal) closeMyAccount(); });
+if ($('my-account-save')) $('my-account-save').addEventListener('click', async () => {
+  const name = $('my-name').value.trim();
+  const currentPassword = $('my-current-password').value;
+  const newPassword = $('my-new-password').value;
+  myAccountError.textContent = '';
+  try {
+    const body = { name };
+    if (newPassword) { body.currentPassword = currentPassword; body.newPassword = newPassword; }
+    const data = await api('/api/admin/me/profile', { method: 'PATCH', body: JSON.stringify(body) });
+    Object.assign(user, data.user || {});
+    sessionStorage.setItem('iems_user', JSON.stringify(user));
+    $('chip-name').textContent = user.name;
+    $('chip-avatar').textContent = (user.name || '?').trim()[0] || '?';
+    closeMyAccount();
+    showResult('تم تحديث حسابك', 'تم حفظ الاسم وكلمة المرور بنجاح، وستظل البيانات محفوظة بعد أي Deploy.');
+  } catch (e) {
+    myAccountError.textContent = e.message;
+    myAccountError.className = 'modal-error error';
+  }
+});
+
 function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch])); }
 // Target & performance figures are always shown as whole numbers (no decimals).
 function fmtNumber(v) { return Math.round(Number(v || 0)).toLocaleString('en-US'); }
+// This page renders attendance/target figures with fmtAttendanceNumber() in
+// three places but never defined it, so opening an employee's details threw
+// ReferenceError and the performance/target panels stayed blank. Same
+// implementation as app-home.js: keep decimals when the source value has them.
+function fmtAttendanceNumber(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return '0';
+  return n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
 function fmtHours(v) {
   if (v === null || v === undefined || v === '') return '—';
   const n = Number(v);
@@ -100,7 +155,7 @@ $('theme-toggle').addEventListener('click', () => {
 updateThemeIcon();
 
 $('chip-name').textContent = user.name;
-$('chip-role').textContent = `ID: ${user.id} · ${isSupervisor ? 'مشرف' : 'مدير النظام'}`;
+$('chip-role').textContent = `ID: ${user.id} · ${isCreator ? 'منشئ النظام' : isSupervisor ? 'مشرف' : 'مدير النظام'}`;
 $('chip-avatar').textContent = (user.name || '?').trim()[0] || '?';
 $('logout-btn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = '/index.html'; });
 
@@ -110,10 +165,26 @@ let sortKey = null;
 let sortDir = 'asc'; // 'asc' | 'desc'
 let selectedIds = new Set();
 
-const ROLE_LABELS = { admin: 'مدير النظام', supervisor: 'مشرف', employee: 'موظف' };
+const ROLE_LABELS = { system_creator: 'منشئ النظام', admin: 'مدير النظام', supervisor: 'مشرف', employee: 'موظف' };
+const supervisorShiftLabel = e => Array.isArray(e?.supervisor_shifts) && e.supervisor_shifts.length ? ` · ${e.supervisor_shifts.join(' / ')}` : '';
+// On the Employees page, Manager and Supervisor are strictly view-only.
+// Selection and bulk actions are creator-only as well.
+if (!isCreator) {
+  document.querySelectorAll('.select-col').forEach(el => el.style.display='none');
+  if ($('emp-bulk-row')) $('emp-bulk-row').style.display='none';
+}
 if ($('filter-role')) $('filter-role').innerHTML = `<option value="__ALL__">الكل</option>${isSupervisor ? '' : '<option value="admin">مدير النظام</option>'}<option value="supervisor">مشرف</option><option value="employee">موظف</option>`;
 function roleOptionsHtml(current) {
-  return Object.entries(ROLE_LABELS).filter(([val]) => !isSupervisor || val !== 'admin').map(([val, label]) =>
+  const allowed = Object.keys(ROLE_LABELS).filter(val => {
+    if (isCreator) return true;
+    if (isAdmin) return ['admin', 'supervisor', 'employee'].includes(val);
+    return ['supervisor', 'employee'].includes(val);
+  });
+  // Keep a protected account's real role visible even when the select is
+  // disabled. Otherwise an admin account was rendered as "مشرف" although
+  // the backend still treated it as an admin.
+  if (current && !allowed.includes(current)) allowed.unshift(current);
+  return allowed.map(val => [val, ROLE_LABELS[val]]).map(([val, label]) =>
     `<option value="${val}" ${val === current ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('');
 }
 
@@ -126,30 +197,21 @@ function statusBadgeHtml(status) {
 
 function renderTable(list) {
   currentList = list;
-  $('emp-count').textContent = `${list.length} نتيجة`;
   if (!list.length) { $('emp-table-body').innerHTML = '<tr><td colspan="10"><div class="empty-state">لا توجد نتائج.</div></td></tr>'; return; }
   $('emp-table-body').innerHTML = list.map(e => `
     <tr data-id="${escapeHtml(e.id)}" class="${e.is_top5 ? 'emp-row-top5' : ''}">
-      <td class="select-col"><input type="checkbox" class="row-select" data-select-for="${escapeHtml(e.id)}" ${selectedIds.has(String(e.id)) ? 'checked' : ''} ${String(e.id) === String(user.id) ? 'disabled' : ''}></td>
+      <td class="select-col" style="${isCreator ? "" : "display:none"}"><input type="checkbox" class="row-select" data-select-for="${escapeHtml(e.id)}" ${selectedIds.has(String(e.id)) ? 'checked' : ''} ${String(e.id) === String(user.id) ? 'disabled' : ''}></td>
       <td>${escapeHtml(e.id)}</td>
       <td class="emp-name-cell">${escapeHtml(e.name)}${e.is_top5 ? '<span class="top5-badge" title="من ضمن أفضل 5 موظفين">🏆 Top 5</span>' : ''}</td>
       <td>${escapeHtml(e.company || '—')}</td>
       <td>${escapeHtml(e.shift || '—')}</td>
       <td>${escapeHtml(e.department || '—')}</td>
       <td>${escapeHtml(e.education || '—')}</td>
-      <td>
-        <select class="role-select role-${escapeHtml(e.role || 'employee')}" data-role-for="${escapeHtml(e.id)}" ${(String(e.id) === String(user.id) || e.is_primary_admin) ? `disabled title="${e.is_primary_admin ? 'مدير النظام الأساسي - لا يمكن تغيير صلاحيته' : 'لا يمكنك تغيير صلاحيتك الخاصة'}"` : ''}>
-          ${roleOptionsHtml(e.role || 'employee')}
-        </select>
-        ${e.is_primary_admin ? '<span class="primary-admin-badge" title="مدير النظام الأساسي">🔒</span>' : ''}
-      </td>
+      <td>${(isCreator || (isAdmin && e.role !== 'system_creator')) ? `<select class="role-select role-${escapeHtml(e.role || 'employee')}" data-role-for="${escapeHtml(e.id)}" ${(String(e.id) === String(user.id) || e.is_primary_admin) ? 'disabled' : ''}>${roleOptionsHtml(e.role || 'employee')}</select>` : `<span class="role-readonly">${escapeHtml((ROLE_LABELS[e.role || 'employee'] || 'موظف') + (e.role === 'supervisor' ? supervisorShiftLabel(e) : ''))}</span>`}${e.is_primary_admin ? '<span class="primary-admin-badge">🔒</span>' : ''}</td>
       <td>${statusBadgeHtml(e.status)}</td>
       <td class="emp-actions-cell">
         <button class="row-icon-btn info-btn" data-action="view" title="عرض بيانات الموظف كما تظهر له">${miniIcon('view')}</button>
-        ${isSupervisor ? '' : `<button class="row-icon-btn" data-action="edit" title="تعديل بيانات الموظف">${miniIcon('edit')}</button>
-        <button class="row-icon-btn" data-action="pw" title="تغيير كلمة المرور">${miniIcon('key')}</button>
-        <button class="row-icon-btn" data-action="reset" title="كلمة مرور افتراضية جديدة">${miniIcon('reset')}</button>
-        <button class="row-icon-btn danger-icon" data-action="delete" title="حذف الموظف">${miniIcon('delete')}</button>`}
+        ${isCreator ? `<button class="row-icon-btn" data-action="edit" title="تعديل">${miniIcon('edit')}</button><button class="row-icon-btn" data-action="pw" title="كلمة المرور">${miniIcon('key')}</button><button class="row-icon-btn" data-action="reset" title="إعادة التعيين">${miniIcon('reset')}</button><button class="row-icon-btn danger-icon" data-action="delete" title="حذف">${miniIcon('delete')}</button>` : ''}
       </td>
     </tr>`).join('');
   updateSelectAllState();
@@ -238,7 +300,19 @@ async function loadEmployees() {
   try {
     const { employees, total } = await api('/api/admin/employees');
     allEmployees = employees;
-    $('emp-total').textContent = total ?? employees.filter(e => (e.role || 'employee') === 'employee').length;
+    const params = new URLSearchParams(location.search);
+    const companyParam = params.get('company');
+    const educationParam = params.get('education');
+    const statusParam = params.get('status');
+    if (statusParam && ['active','left','archive'].includes(statusParam)) {
+      allEmployees = allEmployees.filter(e => (e.status || 'active') === statusParam);
+      if ($('filter-status')) $('filter-status').value = statusParam;
+    }
+    if (companyParam) {
+      const wanted = companyParam === 'smart' ? 'SMART' : companyParam === 'bravos' ? 'BRAVOS' : companyParam.toUpperCase();
+      allEmployees = allEmployees.filter(e => String(e.company||'').toUpperCase().includes(wanted) || (companyParam==='smart' && String(e.company||'').toUpperCase()==='SB'));
+    }
+    if (educationParam) allEmployees = allEmployees.filter(e => String(e.education||'') === educationParam);
     populateFilterOptions();
     renderTable(getFiltered());
   } catch (e) {
@@ -247,23 +321,57 @@ async function loadEmployees() {
 }
 
 $('emp-search').addEventListener('input', () => renderTable(getFiltered()));
+// Browsers may autofill this box with the saved login ID (it looks like a
+// "username" field next to the password inputs in the My Account modal).
+// Clear any value the user did not type, and keep the table in sync.
+{
+  let typed = false;
+  $('emp-search').addEventListener('keydown', () => { typed = true; });
+  [0, 300, 1000, 2500].forEach(ms => setTimeout(() => {
+    const el = $('emp-search');
+    if (el && !typed && el.value) { el.value = ''; renderTable(getFiltered()); }
+  }, ms));
+}
 
 // ---- Role change dropdown ----
+// ---- Role change + supervisor shift assignment ----
+const supervisorShiftsModal = $('supervisor-shifts-modal');
+let pendingRoleChange = null;
+function closeSupervisorShiftModal(){ pendingRoleChange=null; if(supervisorShiftsModal) supervisorShiftsModal.classList.remove('open'); }
+function openSupervisorShiftModal(emp, sel){
+  pendingRoleChange={emp,sel};
+  const selected=Array.isArray(emp?.supervisor_shifts)?emp.supervisor_shifts.map(String):[];
+  document.querySelectorAll('#supervisor-shift-options input').forEach(cb=>cb.checked=selected.includes(cb.value));
+  $('supervisor-shifts-error').style.display='none';
+  supervisorShiftsModal.classList.add('open');
+}
+$('supervisor-shifts-cancel')?.addEventListener('click',closeSupervisorShiftModal);
+$('supervisor-shifts-cancel-2')?.addEventListener('click',closeSupervisorShiftModal);
+$('supervisor-shifts-save')?.addEventListener('click',async()=>{
+  if(!pendingRoleChange) return;
+  const {emp,sel}=pendingRoleChange;
+  const shifts=[...document.querySelectorAll('#supervisor-shift-options input:checked')].map(x=>x.value);
+  if(!shifts.length){$('supervisor-shifts-error').textContent='اختر شيفتًا واحدًا على الأقل.';$('supervisor-shifts-error').style.display='block';return;}
+  try{
+    const data=await api(`/api/admin/employee/${encodeURIComponent(emp.id)}/role`,{method:'PATCH',body:JSON.stringify({role:'supervisor',supervisorShifts:shifts})});
+    emp.role='supervisor'; emp.supervisor_shifts=shifts;
+    sel.value='supervisor'; sel.className='role-select role-supervisor';
+    closeSupervisorShiftModal(); renderTable(getFiltered());
+  }catch(err){$('supervisor-shifts-error').textContent=err.message;$('supervisor-shifts-error').style.display='block'}
+});
+
 $('emp-table-body').addEventListener('change', async (e) => {
   const sel = e.target.closest('select[data-role-for]');
   if (!sel) return;
   const id = sel.dataset.roleFor;
   const emp = allEmployees.find(x => String(x.id) === String(id));
   const prevRole = emp ? emp.role || 'employee' : sel.value;
+  if(sel.value==='supervisor' && prevRole!=='supervisor'){ return openSupervisorShiftModal(emp,sel); }
   try {
-    await api(`/api/admin/employee/${encodeURIComponent(id)}/role`, { method: 'PATCH', body: JSON.stringify({ role: sel.value }) });
-    if (emp) emp.role = sel.value;
-    sel.className = `role-select role-${sel.value}`;
-    $('emp-total').textContent = allEmployees.filter(e2 => (e2.role || 'employee') === 'employee').length;
-  } catch (err) {
-    sel.value = prevRole;
-    showResult('خطأ', err.message);
-  }
+    await api(`/api/admin/employee/${encodeURIComponent(id)}/role`, { method:'PATCH', body:JSON.stringify({role:sel.value,supervisorShifts:[]}) });
+    if (emp) { emp.role=sel.value; emp.supervisor_shifts=[]; }
+    sel.className=`role-select role-${sel.value}`;
+  } catch(err){ sel.value=prevRole; showResult('خطأ',err.message); }
 });
 
 // ---- View-as-employee modal (exactly what the employee sees) ----
@@ -440,6 +548,9 @@ $('pw-save').addEventListener('click', async () => {
   } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
 });
 
+// ---- Departure modal ----
+const departureModal=$('departure-modal');let departureTarget=null;if(departureModal){$('departure-cancel').onclick=()=>departureModal.classList.remove('open');$('departure-save').onclick=async()=>{const dateEl=$('departure-date'),reasonEl=$('departure-reason'),errEl=$('departure-error');const leftDate=String(dateEl?.value||'').trim();const reason=String(reasonEl?.value||'').trim();errEl.style.display='none';if(!/^\d{4}-\d{2}-\d{2}$/.test(leftDate)){errEl.textContent='اختر تاريخ المغادرة بشكل صحيح.';errEl.style.display='block';return}if(!reason){errEl.textContent='اختر سبب المغادرة.';errEl.style.display='block';return}try{await api(`/api/admin/employee/${encodeURIComponent(departureTarget.id)}/departure`,{method:'PATCH',body:JSON.stringify({leftDate,reason})});departureModal.classList.remove('open');await loadEmployees()}catch(e){errEl.textContent=e.message;errEl.style.display='block'}}}function openDepartureModal(emp){departureTarget=emp;$('departure-date').value=new Date().toISOString().slice(0,10);$('departure-reason').value='';$('departure-error').style.display='none';departureModal.classList.add('open')}
+
 // ---- Delete modal (single or bulk) ----
 const deleteModal = $('delete-modal');
 let deleteTarget = null; // single employee object
@@ -505,11 +616,12 @@ $('emp-table-body').addEventListener('click', (e) => {
   const emp = allEmployees.find(x => String(x.id) === String(id));
   if (!emp) return;
   const action = btn.dataset.action;
-  if (action === 'view') return openViewModal(id);
-  if (action === 'edit') { if (isSupervisor) return showResult('غير مسموح', 'المشرف لا يمكنه تعديل بيانات الموظف.'); return openEditModal(emp); }
-  if (action === 'pw') { if (isSupervisor) return showResult('غير مسموح', 'المشرف لا يمكنه تغيير كلمة المرور.'); return openPwModal(emp); }
-  if (action === 'delete') { if (isSupervisor) return showResult('غير مسموح', 'المشرف لا يمكنه حذف الموظف.'); return openDeleteModal(emp); }
-  if (action === 'reset') { if (isSupervisor) return showResult('غير مسموح', 'المشرف لا يمكنه إعادة تعيين كلمة المرور.');
+  if (action === 'view') return location.href = `/employee.html?id=${encodeURIComponent(id)}`;
+  if (action === 'edit') { if (!isCreator) return showResult('غير مسموح', 'لا توجد صلاحية لهذا الإجراء.'); return openEditModal(emp); }
+  if (action === 'pw') { if (!isCreator) return showResult('غير مسموح', 'لا توجد صلاحية لهذا الإجراء.'); return openPwModal(emp); }
+  if (action === 'delete') { if (!isCreator) return showResult('غير مسموح', 'لا توجد صلاحية لهذا الإجراء.'); return openDeleteModal(emp); }
+  if (action === 'departure') return openDepartureModal(emp);
+  if (action === 'reset') { if (isSupervisor) return showResult('غير مسموح', 'غير مسموح.');
     api(`/api/admin/employee/${encodeURIComponent(id)}/reset-default`, { method: 'POST' })
       .then(data => showResult('تم إنشاء كلمة مرور افتراضية', `كلمة المرور الجديدة لـ ${emp.name}: ${data.password}\nسيُطلب من الموظف تغييرها عند أول تسجيل دخول.`))
       .catch(err => showResult('خطأ', err.message));
@@ -520,7 +632,7 @@ $('emp-table-body').addEventListener('click', (e) => {
 $('emp-table-body').addEventListener('click', (e) => {
   if (e.target.closest('button[data-action]') || e.target.closest('.select-col') || e.target.closest('select[data-role-for]')) return;
   const row = e.target.closest('tr[data-id]');
-  if (row) openViewModal(row.dataset.id);
+  if (row) location.href = `/employee.html?id=${encodeURIComponent(row.dataset.id)}`;
 });
 
 loadEmployees();

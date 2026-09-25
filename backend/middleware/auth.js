@@ -13,42 +13,40 @@ function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'مطلوب تسجيل الدخول' });
-
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    req.user = payload; // { id, role, name }
+    req.user = jwt.verify(token, JWT_SECRET);
     next();
-  } catch (err) {
+  } catch (_) {
     return res.status(401).json({ error: 'الجلسة منتهية، من فضلك سجل الدخول مرة أخرى' });
   }
 }
 
-// Full-control admin only ('admin'). Used for anything sensitive:
-// managing employees, changing roles, deleting, viewing full overview, etc.
+const isCreator = req => req.user?.role === 'system_creator';
+const isAdmin = req => req.user?.role === 'admin' || isCreator(req);
+const isSupervisor = req => isAdmin(req) || req.user?.role === 'supervisor';
+
+function requireSystemCreator(req, res, next) {
+  if (!requireJwtSecret(res)) return;
+  if (!isCreator(req)) return res.status(403).json({ error: 'هذه الصفحة متاحة لمنشئ النظام فقط.' });
+  next();
+}
+
 function requireAdmin(req, res, next) {
   if (!requireJwtSecret(res)) return;
-  if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'هذا الإجراء متاح للمدير (تحكم كامل) فقط' });
-  }
+  if (!isAdmin(req)) return res.status(403).json({ error: 'هذا الإجراء متاح لمدير النظام أو منشئ النظام فقط.' });
   next();
 }
 
-// Either a full admin OR an "upload only" admin. Used for the master-import
-// endpoint, since upload-only admins are allowed to import the Excel sheet
-// but nothing else.
 function requireSupervisor(req, res, next) {
   if (!requireJwtSecret(res)) return;
-  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'supervisor')) {
-    return res.status(403).json({ error: 'هذا الإجراء متاح لمدير النظام أو المشرف فقط' });
-  }
+  if (!isSupervisor(req)) return res.status(403).json({ error: 'هذا الإجراء متاح لمدير النظام أو المشرف فقط.' });
   next();
 }
 
-// Backward-compatible alias for old code; new permission model calls this role supervisor.
+function requireAdminOrSupervisor(req, res, next) { return requireSupervisor(req, res, next); }
 const requireUploader = requireSupervisor;
 
-function requireAdminOrSupervisor(req, res, next) {
-  return requireSupervisor(req, res, next);
-}
-
-module.exports = { requireAuth, requireAdmin, requireSupervisor, requireAdminOrSupervisor, requireUploader, JWT_SECRET };
+module.exports = {
+  requireAuth, requireAdmin, requireSupervisor, requireAdminOrSupervisor,
+  requireUploader, requireSystemCreator, isCreator, isAdmin, isSupervisor, JWT_SECRET
+};

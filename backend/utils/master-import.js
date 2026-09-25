@@ -259,6 +259,7 @@ function parseSheet(xml, sharedStrings) {
     if (!rowNum) continue;
 
     const cells = {};
+    const formulas = {};
 
     const cellRegex =
       /<c\b([^>]*?)(?:>([\s\S]*?)<\/c>|\s*\/>)/g;
@@ -290,6 +291,13 @@ function parseSheet(xml, sharedStrings) {
 
       const body =
         cellMatch[2] || '';
+
+      const formulaMatch = body.match(
+        /<f\b[^>]*>([\s\S]*?)<\/f>/
+      );
+      if (formulaMatch) {
+        formulas[col] = xmlUnescape(formulaMatch[1]);
+      }
 
       let value = null;
 
@@ -356,6 +364,13 @@ function parseSheet(xml, sharedStrings) {
 
       cells[col] = value;
     }
+
+    // Keep formulas available to import-specific logic without changing the
+    // existing row shape consumed by the rest of the parser.
+    Object.defineProperty(cells, '__formulas', {
+      value: formulas,
+      enumerable: false,
+    });
 
     rows.set(
       rowNum,
@@ -459,6 +474,59 @@ function normalizeStage(value) {
   return text
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Master!AO contains each stage's percentage as a formula such as
+ * `AN311/6000`. The denominator is the monthly target for that stage.
+ *
+ * Only accept a plain numeric denominator at the end of the formula. This
+ * avoids accidentally treating unrelated formulas as targets and lets a
+ * future workbook use a different formula shape without importing a wrong
+ * number.
+ */
+function extractMonthlyTarget(formula, cachedValue = null, rows = null) {
+  // In the Master sheet AO is normally a percentage formula such as
+  // `=AN311/6000`. The important part for the employee page is the divisor
+  // (6000), because that is the real monthly target.
+  if (formula) {
+    const text = String(formula).trim().replace(/^=/, '');
+
+    // Accept both plain divisors and divisors wrapped in parentheses. Do not
+    // require the divisor to be the final token; some workbooks append *100
+    // or other harmless formatting math after the division.
+    const numericDivisors = [...text.matchAll(/\/\s*\(?\s*\$?([0-9]+(?:[.,][0-9]+)?)\s*\)?/g)]
+      .map(m => Number(String(m[1]).replace(',', '.')))
+      .filter(n => Number.isFinite(n) && n > 0);
+    if (numericDivisors.length) return numericDivisors[numericDivisors.length - 1];
+
+    // Some Excel files store the target in a referenced cell, e.g.
+    // `=AN311/$AO$4`. Resolve a simple single-cell divisor when possible.
+    const ref = text.match(/\/\s*\(?\s*\$?([A-Z]{1,3})\$?(\d+)\s*\)?/i);
+    if (ref && rows) {
+      const col = colToNumber(ref[1].toUpperCase());
+      const rowNum = Number(ref[2]);
+      const referenced = rows.get(rowNum);
+      const value = referenced?.[col];
+      const n = Number(value);
+      if (Number.isFinite(n) && n > 0) return n;
+
+      const nested = referenced?.__formulas?.[col];
+      if (nested && nested !== formula) {
+        const nestedTarget = extractMonthlyTarget(nested, value, rows);
+        if (nestedTarget) return nestedTarget;
+      }
+    }
+  }
+
+  // A few exported workbooks lose the formula text while keeping a numeric AO
+  // value. In that case only treat values greater than 1 as a target; cached
+  // percentages are normally <= 1, so this avoids turning a percentage into
+  // a fake target.
+  const cached = Number(cachedValue);
+  if (!formula && Number.isFinite(cached) && cached > 1) return cached;
+
+  return null;
 }
 
 /**
@@ -1151,9 +1219,17 @@ function parseMasterWorkbook(buffer) {
         }
       }
 
+      const monthlyTargetFormula = stageName === 'الحضور'
+        ? null
+        : row.__formulas?.[41] || null;
+      const monthlyTarget = stageName === 'الحضور'
+        ? null
+        : extractMonthlyTarget(monthlyTargetFormula, row[41], rows);
       employee.stages.push({
         role: stageName,
-        daily
+        daily,
+        monthlyTarget,
+        monthlyTargetFormula,
       });
     }
 

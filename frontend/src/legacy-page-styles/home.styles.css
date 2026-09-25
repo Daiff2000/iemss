@@ -53,7 +53,15 @@
 /* Unified Home + Attendance page */
 @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&display=swap');
 
-:root{--primary:#065BAB;--primary-2:#044B8C;--accent:#4B86B5;--success:#16A34A;--warning:#F59E0B;--danger:#DC2626;--radius:12px;--shadow:none}
+/* The palette lives in legacy-style.css only.
+ * This file used to re-declare :root here with a DIFFERENT --accent (#4B86B5
+ * vs #065BAB), --success (#16A34A vs #2E9A5C), --warning (#F59E0B vs #D08A2E),
+ * --danger (#DC2626 vs #C6473F) and --shadow:none. Because a page stylesheet
+ * is injected after the global one, these won on the home page and nowhere
+ * else, so the same status colour rendered in two different shades depending
+ * on which screen you were looking at, and home lost every card shadow.
+ * --primary, --primary-2 and --radius were identical duplicates.
+ * Change colours in legacy-style.css instead. */
 
 
 /* Keep the original attendance page as the single visual system. */
@@ -464,7 +472,7 @@
 /* KPI cards: vertically spaced, never visually stuck together */
 .kpi-grid,.attendance-kpis,.unified-attendance-kpis{
   display:grid!important;
-  grid-template-columns:repeat(5,minmax(0,1fr));
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:18px!important;
   align-items:stretch;
   margin:18px 0 24px;
@@ -630,3 +638,51 @@ html[data-theme="dark"] .info-item.rank-badge-item{background:linear-gradient(13
 @media(max-width:680px){.target-shift-banner{padding:12px}.target-shift-icon{width:38px;height:38px}}
 
 .shift-detail-heading{margin:0 0 10px;padding:12px 15px;border:1px solid var(--line);border-radius:14px;background:var(--soft);color:var(--primary);font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:flex-start}.shift-detail-heading span{display:inline-flex;align-items:center;gap:8px}.shift-detail-heading span:before{content:'Shift';font-size:9px;padding:4px 7px;border-radius:7px;background:var(--primary);color:#fff}.shift-detail-table{margin-bottom:16px}.has-duplicate-shifts .table-wrap{margin-bottom:16px}
+
+.system-banner-wrap{margin:0 0 22px;border-radius:18px;overflow:hidden;background:var(--panel,#fff);box-shadow:0 10px 30px rgba(0,0,0,.08)}
+.system-banner{display:block;width:100%;max-height:260px;object-fit:cover}
+
+.kpi-link-wrap{min-width:0;cursor:pointer}
+.kpi-link-wrap .kpi-card2{height:100%}
+.kpi-link-wrap:focus-visible{outline:2px solid var(--primary);outline-offset:4px;border-radius:18px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:560px){.kpi-grid{grid-template-columns:1fr!important}}
+
+/* Employee quick actions, exports and external service links */
+.employee-detail-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.employee-detail-actions button{min-height:38px}
+.employee-detail-actions svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.employee-detail-actions .excel-btn:hover:not(:disabled){border-color:var(--success);color:var(--success)}
+.employee-detail-actions .pdf-btn:hover:not(:disabled){border-color:var(--danger);color:var(--danger)}
+.employee-links-panel{margin-top:16px}
+.employee-links-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.employee-link-card{display:grid;grid-template-columns:auto 1fr;grid-template-areas:"icon copy" "icon button";align-items:center;column-gap:12px;row-gap:8px;padding:16px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 7%,var(--panel)),var(--panel));color:var(--text);text-decoration:none;box-shadow:var(--shadow);transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+.employee-link-card:hover{transform:translateY(-2px);border-color:var(--primary);box-shadow:0 12px 28px rgba(6,91,171,.13)}
+.employee-link-icon{grid-area:icon;width:42px;height:42px;display:grid;place-items:center;border-radius:13px;background:color-mix(in srgb,var(--primary) 14%,var(--panel));color:var(--primary)}
+.employee-link-icon svg{width:23px;height:23px}
+.employee-link-card>span:nth-child(2){grid-area:copy;display:flex;flex-direction:column;gap:2px;min-width:0}
+.employee-link-card b{font-size:12px;font-weight:900}
+.employee-link-card small{font-size:9px;line-height:1.7;color:var(--muted);font-weight:700}
+.employee-link-button{grid-area:button;justify-self:start;padding:6px 10px;border-radius:8px;background:var(--primary);color:#fff;font-size:9px;font-weight:900}
+.employee-link-card:hover .employee-link-button{background:var(--primary-2)}
+@media(max-width:900px){.employee-links-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.employee-links-grid{grid-template-columns:1fr}.employee-detail-actions{width:100%}.employee-detail-actions button{flex:1}}
+
+/* Final Home KPI layout: desktop is always 4 columns x 3 rows. */
+@media(min-width:761px){
+  #modern-dashboard #kpi-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important;grid-template-rows:repeat(3,minmax(0,auto))!important;gap:16px!important}
+  #modern-dashboard #kpi-grid > .kpi-link-wrap::before,
+  #modern-dashboard #kpi-grid > .kpi-card2::before{display:none!important;content:none!important}
+}
+#modern-dashboard #kpi-grid > .kpi-link-wrap::before,
+#modern-dashboard #kpi-grid > .kpi-card2::before{display:none!important}
+
+/* Merged overall percentage column: full-height blue brand column */
+.detail-percentage-merged{vertical-align:middle!important;text-align:center!important;min-width:130px!important;width:130px;background:var(--primary)!important;color:#fff!important;font-weight:950!important;border-left:3px solid var(--primary)!important;border-right:3px solid var(--primary)!important}
+.detail-percentage-merged b{display:block!important;color:#fff!important;font-size:18px!important;line-height:1.2}
+.detail-percentage-merged small{display:block!important;margin-top:5px!important;color:rgba(255,255,255,.9)!important;font-size:10px!important;font-weight:800}
+
+/* النسبة الإجمالية: عمود مدمج بطول تفاصيل اليومية وبألوان الهوية البصرية */
+.detail-percentage-merged{vertical-align:middle!important;text-align:center!important;min-width:130px!important;width:130px!important;background:var(--primary)!important;color:#fff!important;font-weight:950!important;border-left:3px solid var(--primary)!important;border-right:3px solid var(--primary)!important}
+.detail-percentage-merged b{display:block!important;color:#fff!important;font-size:18px!important;line-height:1.2}
+.detail-percentage-merged small{display:block!important;margin-top:5px!important;color:rgba(255,255,255,.9)!important;font-size:10px!important;font-weight:800}

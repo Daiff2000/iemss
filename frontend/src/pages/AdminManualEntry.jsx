@@ -7,7 +7,7 @@ export default function AdminManualEntry() {
     <LegacyPage
       bodyHtml={bodyHtml}
       pageStyleCss={pageStyleCss}
-      scripts={[ '/legacy/i18n.js', '/legacy/app-admin-manual-entry.js', '/legacy/app-shell.js']}
+      scripts={[  '/legacy/app-admin-manual-entry.js', '/legacy/app-shell.js']}
     />
   );
 }

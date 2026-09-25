@@ -1,0 +1,1 @@
+import LegacyPage from '../components/LegacyPage';import bodyHtml from '../legacy-html/employee-detail.body.html?raw';import pageStyleCss from '../legacy-page-styles/employee-detail.styles.css?raw';export default function EmployeeDetail(){return <LegacyPage bodyHtml={bodyHtml} pageStyleCss={pageStyleCss} scripts={['/legacy/app-employee-detail.js','/legacy/app-shell.js']}/>;}

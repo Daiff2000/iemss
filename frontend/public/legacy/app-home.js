@@ -1,15 +1,23 @@
 
 // Employee welcome styling (kept in the legacy script so the production dist receives it without a rebuild).
 (() => {
-  const style = document.createElement('style');
+  const style = document.getElementById('iems-home-style') || document.createElement('style');
+  style.id = 'iems-home-style';
+  style.dataset.iemsPageStyle = 'home';
   style.textContent = `
     #welcome-message{display:none!important}
     .detail-attendance-day{white-space:nowrap}.detail-attendance-day small{display:block;margin-top:3px;font-size:10px;font-weight:900;opacity:.78}
-    .merged-target-percent{border:2px solid #065BAB;text-align:center;vertical-align:middle;background:rgba(6,91,171,.06)}
-    .merged-target-percent-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 6px}
-    .merged-target-percent-value{font-size:26px;font-weight:900;color:#065BAB;line-height:1}
-    .merged-target-percent-label{font-size:11px;font-weight:800;color:var(--muted);opacity:.85}
-    html[data-theme="dark"] .merged-target-percent-value{color:#3B9BFF}
+    .detail-date-head{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:62px}.detail-date-head .detail-day{font-size:11px;font-weight:900;color:var(--primary)}.detail-date-head .detail-date{font-size:14px;font-weight:950;color:var(--text);direction:ltr}
+    .target-percent{display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:0;border:none;background:none;border-radius:0;font-weight:950;line-height:1.2}.target-percent-low{color:#e5484d}.target-percent-mid{color:#f2b705}.target-percent-high{color:#0aac5e}
+    .total-target-master-row>td{background:color-mix(in srgb,var(--primary) 5%,var(--panel));font-weight:900}.total-target-master-row .total-target-cell{font-weight:950}
+    .daily-details-wrap{display:flex;align-items:flex-start;gap:18px}
+    .overall-percent-badge{flex:0 0 130px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:18px 10px;text-align:center}
+    .overall-percent{font:950 30px/1.1 'Cairo',sans-serif}
+    .overall-percent-label{font-size:10px;font-weight:900;color:var(--muted)}
+    .overall-percent.target-percent-low{color:#e5484d}.overall-percent.target-percent-mid{color:#f2b705}.overall-percent.target-percent-high{color:#0aac5e}
+    html[data-theme="dark"] .overall-percent.target-percent-low{color:#ff6b6b}html[data-theme="dark"] .overall-percent.target-percent-mid{color:#ffd85e}html[data-theme="dark"] .overall-percent.target-percent-high{color:#4ade80}
+    @media(max-width:680px){.daily-details-wrap{flex-direction:column-reverse}.overall-percent-badge{flex-direction:row;justify-content:flex-start;width:100%}}
+    html[data-theme="dark"] .target-percent-low{color:#ff6b6b}html[data-theme="dark"] .target-percent-mid{color:#ffd85e}html[data-theme="dark"] .target-percent-high{color:#4ade80}
     .employee-welcome-content{display:grid;grid-template-columns:minmax(260px,.85fr) minmax(0,1.6fr);gap:24px;align-items:stretch;margin:0 0 18px;padding:26px;border:1px solid var(--line);border-radius:22px;background:linear-gradient(135deg,rgba(6,91,171,.10),rgba(6,91,171,.025) 55%,var(--panel));box-shadow:0 14px 38px rgba(15,23,42,.06);overflow:hidden;position:relative}
     .employee-welcome-content:before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;inset:auto -90px -120px auto;background:radial-gradient(circle,rgba(6,91,171,.18),transparent 68%);pointer-events:none}
     .employee-welcome-copy{display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1}
@@ -33,14 +41,39 @@
     @media(max-width:900px){.employee-welcome-content{grid-template-columns:1fr}.employee-welcome-features{grid-template-columns:1fr 1fr}}
     @media(max-width:560px){.employee-welcome-content{padding:18px}.employee-welcome-features{grid-template-columns:1fr}.employee-welcome-copy h2{font-size:21px}}
   `;
-  document.head.appendChild(style);
+  if (!style.isConnected) document.head.appendChild(style);
 })();
 /* IEMS Home: unified dashboard + attendance logic. The former page-specific scripts are intentionally removed. */
 (() => {
+window.__iemsLoadSystemBanner = loadSystemBanner;
+async function loadSystemBanner() {
+  try {
+    const token = sessionStorage.getItem('iems_token');
+    if (!token) return;
+    const res = await fetch('/api/admin/banner/image', { headers: { Authorization: 'Bearer ' + token } });
+    if (!res.ok) return;
+    const image = document.getElementById('system-banner');
+    const wrap = document.getElementById('system-banner-wrap');
+    if (!image || !wrap) return;
+
+    const objectUrl = URL.createObjectURL(await res.blob());
+    image.onload = () => { wrap.style.display = 'block'; };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      wrap.style.display = 'none';
+    };
+    image.src = objectUrl;
+  } catch (_) {}
+}
 const token = sessionStorage.getItem('iems_token');
 const userRaw = sessionStorage.getItem('iems_user');
-if (!token || !userRaw) window.location.href = '/index.html';
-const user = JSON.parse(userRaw);
+// A redirect is asynchronous: the rest of this file kept running after it and
+// then threw on `user.role` (user was null), so the page stayed blank instead
+// of navigating cleanly. Bail out immediately instead.
+if (!token || !userRaw) { window.location.href = '/index.html'; return; }
+let user = null;
+try { user = JSON.parse(userRaw); } catch (_) {}
+if (!user || !user.role) { sessionStorage.clear(); window.location.href = '/index.html'; return; }
 
 const $ = id => document.getElementById(id);
 function authHeaders() { return { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }; }
@@ -85,6 +118,26 @@ function fmtPercent(v) {
   if (!Number.isFinite(n)) return '—';
   return Math.round(n * 100) + '%';
 }
+function achievementPercent(summary) {
+  const achievement = Number(summary?.total_achievement);
+  const target = Number(summary?.total_target); // Master!AO — 
+  return Number.isFinite(achievement) && Number.isFinite(target) && target > 0 ? achievement / target : null;
+}
+function percentClass(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '';
+  const percent = n * 100;
+  return percent < 50 ? 'target-percent-low' : percent < 70 ? 'target-percent-mid' : 'target-percent-high';
+}
+function coloredPercent(value) {
+  const text = fmtPercent(value);
+  return text === '—' ? '—' : `<span class="target-percent ${percentClass(value)}">${text}</span>`;
+}
+function detailWeekday(date) {
+  const names = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return Number.isNaN(parsed.getTime()) ? '—' : names[parsed.getUTCDay()];
+}
 
 // Theme
 const savedTheme = localStorage.getItem('iems-theme') || 'light';
@@ -98,18 +151,27 @@ $('theme-toggle').addEventListener('click', () => {
   updateThemeIcon(); syncThemeLogos();
 });
 updateThemeIcon(); syncThemeLogos();
-const ROLE_LABEL = user.role === 'admin' ? 'مدير النظام' : user.role === 'supervisor' ? 'مشرف' : 'Shift ' + (user.shift || '-');
+const ROLE_LABEL = user.role === 'system_creator' ? 'منشئ النظام' : user.role === 'admin' ? 'مدير النظام' : user.role === 'supervisor' ? 'مشرف · Shift ' + (user.shift || '-') : 'Shift ' + (user.shift || '-');
 $('chip-name').textContent = user.name;
 $('chip-role').textContent = `ID: ${user.id} · ${ROLE_LABEL}`;
 $('chip-avatar').textContent = (user.name || '?').trim()[0] || '?';
 $('logout-btn').addEventListener('click', () => { sessionStorage.clear(); window.location.href = '/index.html'; });
-// Employees management page: full-control admin only.
-if ((user.role === 'admin' || user.role === 'supervisor') && $('nav-employees')) $('nav-employees').style.display = 'inline-flex';
-if (user.role === 'admin' && $('nav-reports')) $('nav-reports').style.display = 'inline-flex';
-if ((user.role === 'admin' || user.role === 'supervisor') && $('nav-manual-entry')) $('nav-manual-entry').style.display = 'inline-flex';
+// Nav visibility must match the guard at the top of each target page and the
+// role middleware on its API routes, otherwise a link is shown that just
+// bounces the user straight back here. Single source of truth:
+//   employees / import / reports -> supervisor, admin, system_creator
+//   manual entry                 -> admin, system_creator
+//   audit logs / themes          -> system_creator
+// (app-shell.js applies the same table; keep the two in sync.)
+const SUPERVISOR_UP = user.role === 'system_creator' || user.role === 'admin' || user.role === 'supervisor';
+const ADMIN_UP = user.role === 'system_creator' || user.role === 'admin';
+if ($('nav-employees')) $('nav-employees').style.display = SUPERVISOR_UP ? 'inline-flex' : 'none';
+if ($('nav-import')) $('nav-import').style.display = SUPERVISOR_UP ? 'inline-flex' : 'none';
+if ($('nav-reports')) $('nav-reports').style.display = SUPERVISOR_UP ? 'inline-flex' : 'none';
+if ($('nav-manual-entry')) $('nav-manual-entry').style.display = ADMIN_UP ? 'inline-flex' : 'none';
 
 // Company performance summary + company comparison chart + employee daily details: admin only.
-if (user.role === 'admin') {
+if (user.role === 'admin' || user.role === 'system_creator') {
   if ($('company-summary-panel')) $('company-summary-panel').style.display = '';
   if ($('single-company-chart')) $('single-company-chart').style.display = '';
   if ($('employee-detail-panel')) $('employee-detail-panel').style.display = '';
@@ -128,7 +190,7 @@ async function initFilters() {
     });
   }
   const calls = [api('/api/employee/stages'), api('/api/employee/dates')];
-  if (user.role === 'admin') calls.push(api('/api/employee/shifts'));
+  if (user.role === 'admin' || user.role === 'system_creator') calls.push(api('/api/employee/shifts'));
   const [{ stages }, { dates }, shiftsRes] = await Promise.all(calls);
   availableDates = dates || [];
 
@@ -136,7 +198,7 @@ async function initFilters() {
   const performanceStages = (stages || []).filter(s => String(s).trim() !== 'الحضور');
   stageSel.innerHTML = '<option value="__ALL__">كل المراحل</option>' + performanceStages.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
 
-  if (user.role === 'admin') {
+  if (user.role === 'admin' || user.role === 'system_creator') {
     $('f-shift-field').style.display = 'flex';
     const shifts = (shiftsRes && shiftsRes.shifts) || [];
     $('f-shift').innerHTML = '<option value="__ALL__">كل الشيفتات</option>' + shifts.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
@@ -176,7 +238,10 @@ function svgIcon(type) {
     rate:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m7 16 4-5 3 3 5-7"></path></svg>',
     unauthorized:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>',
     medical:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"></path><path d="M9 12h6"></path><path d="M12 9v6"></path></svg>',
-    chart:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>'
+     chart:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>',
+     leave:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6l1 4H8z"></path><path d="M6 7h12v14H6z"></path><path d="M10 11h4M10 15h4"></path></svg>',
+     new:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M5 21a7 7 0 0 1 14 0M19 8v6M16 11h6"></path></svg>',
+     other:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="19" cy="12" r="2"></circle></svg>'
   };
   return icons[type] || icons.chart;
 }
@@ -227,25 +292,52 @@ function kpiCard(label, value, cls, icon, trendShape) {
 window.__iemsKpi = { svgIcon, kpiLineChart, KPI_TREND_SHAPES, kpiCard };
 
 function renderKpis(overview) {
-  if (user.role !== 'admin') return;
+  if (user.role !== 'admin' && user.role !== 'system_creator') return;
   const o = overview || {};
   const cards = [
-    ['إجمالي الموظفين', Number(o.total || 0), 'blue', 'users'],
-    ['إجمالي شركة سمارت بيزنس', Number(o.smart || 0), 'teal', 'company'],
-    ['إجمالي شركة برافوس', Number(o.bravos || 0), 'amber', 'company'],
-    ['إجمالي الطلاب', Number(o.students || 0), 'purple', 'student'],
-    ['إجمالي الخريجين', Number(o.graduates || 0), 'rose', 'graduate']
+    ['إجمالي الموظفين', Number(o.total || 0), 'blue', 'users', 'all'],
+    ['إجمالي شركة سمارت بيزنس', Number(o.smart || 0), 'teal', 'company', 'smart'],
+    ['إجمالي شركة برافوس', Number(o.bravos || 0), 'amber', 'company', 'bravos'],
+    ['إجمالي الطلاب', Number(o.students || 0), 'purple', 'student', 'students'],
+     ['إجمالي الخريجين', Number(o.graduates || 0), 'rose', 'graduate', 'graduates'],
+    ['إجمالي المغادرين', Number(o.leftEmployees || 0), 'left-kpi', 'leave', 'left'],
+    ['إجمالي الجدد', Number(o.newEmployees || 0), 'new-kpi', 'new', 'new']
   ];
-  $('kpi-grid').innerHTML = cards.map(([label, val, cls, icon], i) =>
-    kpiCard(label, val, cls, icon, KPI_TREND_SHAPES[i % KPI_TREND_SHAPES.length])
-  ).join('');
+  const grid = $('kpi-grid');
+  // This grid is shared with the 5 attendance-summary cards rendered by the
+  // attendance section further down this file (see kpis()). The two sections
+  // load their data independently and finish in whatever order the network
+  // returns, so overwriting the whole grid here used to wipe out the
+  // attendance cards whenever this admin overview resolved last — leaving
+  // only 7 of the 12 KPIs visible. Only touch the cards this function owns.
+  grid.querySelectorAll('[data-kpi-scope="admin"]').forEach(el => el.remove());
+  const html = cards.map(([label, val, cls, icon, group], i) => {
+    const h = kpiCard(label, val, cls, icon, KPI_TREND_SHAPES[i % KPI_TREND_SHAPES.length]);
+    return `<div class="kpi-link-wrap" data-kpi-scope="admin" data-kpi-group="${group}" role="link" tabindex="0">${h}</div>`;
+  }).join('');
+  grid.insertAdjacentHTML('afterbegin', html);
+  grid.querySelectorAll('[data-kpi-scope="admin"][data-kpi-group]').forEach(c => {
+    const go = () => {
+      const g = c.dataset.kpiGroup;
+      if (g === 'new') return location.href = '/employees-new.html';
+      if (g === 'left') return location.href = '/employees-left.html';
+      const params = new URLSearchParams();
+      params.set('status', 'active');
+      if (g === 'smart') params.set('company', 'smart');
+      if (g === 'bravos') params.set('company', 'bravos');
+      if (g === 'students') params.set('education', 'طالب');
+      if (g === 'graduates') params.set('education', 'خريج');
+      location.href = '/admin-employees.html' + (params.toString() ? '?' + params : '');
+    };
+    c.onclick = go;
+    c.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } };
+  });
 }
-
 function renderUnauthorizedAbsence(data) {
   const panel = $('unauthorized-absence-panel');
   const list = $('unauthorized-absence-list');
   const count = $('absence-count');
-  if (!panel || !list || user.role !== 'admin') return;
+  if (!panel || !list || (user.role !== 'admin' && user.role !== 'system_creator')) return;
 
   const rows = Array.isArray(data?.unauthorizedAbsenceEmployees) ? data.unauthorizedAbsenceEmployees : [];
   panel.style.display = rows.length ? 'block' : 'none';
@@ -262,7 +354,7 @@ function renderUnauthorizedAbsence(data) {
 }
 
 function renderModernDashboard(data) {
-  if (user.role !== 'admin') { $('modern-dashboard').style.display = 'none'; return; }
+  if (user.role !== 'admin' && user.role !== 'system_creator') { $('modern-dashboard').style.display = 'none'; return; }
   $('modern-dashboard').style.display = 'block';
   renderKpis(companyOverview);
   // Top-5 moved to Reports; attendance alarm is rendered by app-attendance.js.
@@ -275,7 +367,7 @@ function renderPerformanceChart(rows) {
   const W=900,H=320,L=58,R=18,T=18,B=48, pw=W-L-R, ph=H-T-B;
   const maxVal=Math.max(...rows.map(r=>Math.max(r.classification,r.index)),1);
   const x=i=>L+(rows.length===1?pw/2:(i/(rows.length-1))*pw);
-  const y=v=T+ph-(vOr(v,0)/maxVal)*ph;
+  const y=v=>T+ph-(vOr(v,0)/maxVal)*ph; // was `y=v=...`: a missing `>` turned this into an assignment to an undeclared global
   function pathFor(key){ return rows.map((r,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(r[key]).toFixed(1)}`).join(' '); }
   function areaFor(key){ return `${pathFor(key)} L ${x(rows.length-1).toFixed(1)} ${T+ph} L ${x(0).toFixed(1)} ${T+ph} Z`; }
   const grid=[0,.25,.5,.75,1].map(t=>{const yy=T+ph*t; const val=Math.round(maxVal*(1-t)); return `<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" class="chart-grid"/><text x="${L-10}" y="${yy+4}" text-anchor="end" class="chart-axis">${fmtShort(val)}</text>`}).join('');
@@ -289,6 +381,9 @@ function vOr(v,d){return Number.isFinite(Number(v))?Number(v):d;}
 function fmtShort(v){ const n=Number(v||0); if(n>=1000) return `${Math.round(n/1000)}K`; return Math.round(n); }
 
 function renderStageDonut(stageTotals) {
+  // These widgets were removed from home.body.html; keep the code inert rather
+  // than letting it throw on a null element if it is ever wired back up.
+  if(!$('donut-total')||!$('stage-donut')||!$('stage-legend')) return;
   const entries=Object.entries(stageTotals).filter(([,v])=>Number(v)>0).sort((a,b)=>b[1]-a[1]);
   const total=entries.reduce((a,[,v])=>a+Number(v),0);
   $('donut-total').textContent=fmtShort(total);
@@ -302,6 +397,7 @@ function renderStageDonut(stageTotals) {
 }
 
 function renderModernTopPerformers(groups) {
+  if(!$('top-performers-body')) return;
   const unique=new Map();
   Object.entries(groups).forEach(([stage,rows])=>rows.forEach(r=>{const id=String(r.id); const current=unique.get(id); if(!current || Number(r.achieved)>Number(current.achieved)) unique.set(id,{...r,stage});}));
   const rows=[...unique.values()].sort((a,b)=>Number(b.achieved)-Number(a.achieved)).slice(0,5);
@@ -309,6 +405,7 @@ function renderModernTopPerformers(groups) {
 }
 
 function renderActivities(data) {
+  if(!$('activity-list')) return;
   const rows=[];
   const range=data.range||{};
   rows.push({icon:uiIcon('upload'),cls:'green',title:'New daily data loaded',sub:`Selected period · ${fmtDate(range.from)} → ${fmtDate(range.to)}`,time:'Now'});
@@ -322,7 +419,7 @@ function renderActivities(data) {
 
 // ---- Admin: company-wide overview ----
 async function renderOverview() {
-  if (user.role !== 'admin') return;
+  if (user.role !== 'admin' && user.role !== 'system_creator') return;
   try {
     const from = $('f-from')?.value || '';
     const to = $('f-to')?.value || '';
@@ -341,7 +438,8 @@ async function renderOverview() {
 
 // ---- Top 5 (admin only) ----
 function renderTop5(data) {
-  if (user.role !== 'admin') return;
+  if (user.role !== 'admin' && user.role !== 'system_creator') return;
+  if (!$('top5-range') || !$('top5-container') || !$('f-stage')) return;
   const stage = $('f-stage').value;
   const shiftVal = $('f-shift') ? $('f-shift').value : '__ALL__';
   const groups = stage !== '__ALL__' ? { [stage]: data.selectedTop5 || [] } : data.top5ByStage || {};
@@ -365,21 +463,34 @@ function renderTop5(data) {
 // ---- Self view (employee role only) ----
 async function loadSelfView(dashData) {
   const employeeOnly = user.role === 'employee';
-  if (user.role === 'admin' || user.role === 'supervisor') {
+  if (user.role === 'system_creator' || user.role === 'admin' || user.role === 'supervisor') {
     $('self-view-grid').style.display = 'none';
     $('detail-panel').style.display = 'none';
+    if ($('employee-links-panel')) $('employee-links-panel').style.display = 'none';
+    if ($('employee-detail-actions')) $('employee-detail-actions').style.display = 'none';
     if ($('supervisor-target-panel')) $('supervisor-target-panel').style.display = 'none';
     if ($('emp-kpi-grid')) $('emp-kpi-grid').style.display = 'none';
     return;
   }
   $('self-view-grid').style.display = 'grid';
   $('detail-panel').style.display = 'block';
+  if ($('employee-links-panel')) $('employee-links-panel').style.display = 'block';
+  if ($('employee-detail-actions')) $('employee-detail-actions').style.display = 'flex';
+  $('employee-detail-pdf')?.querySelector('path')?.setAttribute('d', 'M6 22a2 2 0 0 1-2-2V4a2.4 2.4 0 0 1 1.704-2L20 8v12a2 2 0 0 1-2 2z');
   if ($('emp-kpi-grid')) $('emp-kpi-grid').style.display = 'grid';
 
   const params = new URLSearchParams();
   if ($('f-from').value) params.set('from', $('f-from').value);
   if ($('f-to').value) params.set('to', $('f-to').value);
   if ($('f-stage').value) params.set('stage', $('f-stage').value);
+  // When the selected period sits inside one payroll cycle, ask for that
+  // cycle's monthly summary/targets instead of the latest-upload snapshot.
+  {
+    const cyc = v => { const d = new Date(v + 'T00:00:00Z'), y = d.getUTCFullYear(), m = d.getUTCMonth(), day = d.getUTCDate();
+      const st = new Date(Date.UTC(day >= 21 ? y : (m === 0 ? y - 1 : y), day >= 21 ? m : (m === 0 ? 11 : m - 1), 21)); return st.toISOString().slice(0, 7); };
+    const f = $('f-from').value, t = $('f-to').value;
+    if (f && t && cyc(f) === cyc(t)) params.set('month', cyc(f));
+  }
 
   try {
     const data = await api(`/api/employee/${encodeURIComponent(user.id)}?${params}`);
@@ -415,9 +526,43 @@ async function loadSelfView(dashData) {
         <div class="info-item"><span>الفئة</span><b>${escapeHtml(emp.education || '—')}</b></div>`;
     }
 
+    // النسبة والإجمالي هنا = مجموع كل مرحلة على حدة (إنجازها ÷ تارجتها)،
+    // ومجموع تارجت/إنجاز كل المراحل الحقيقي — مش قسمة s.total_achievement
+    // على s.total_target الخام (رقم واحد مستورد من صف واحد بالشيت ومش
+    // مرتبط بمجموع المراحل الفعلي، وده اللي كان بيظهر كرقم غريب زي 30000).
+    const canonicalStageTargets = data.stageTargets || {};
+    let canonicalAchievement = 0, canonicalTarget = 0, canonicalPercentSum = 0, canonicalHasPercent = false;
+    Object.entries(data.stages || {}).forEach(([stageName, rows]) => {
+      const isAttendance = String(stageName).trim() === 'الحضور';
+      const isTotalRow = String(stageName).trim().toUpperCase() === 'TOTAL TARGET %';
+      if (isAttendance || isTotalRow) return;
+      const numericValues = (rows || []).map(r => Number(r.value)).filter(Number.isFinite);
+      if (!numericValues.length) return;
+      const sum = numericValues.reduce((a, b) => a + b, 0);
+      const target = Number(canonicalStageTargets[stageName]);
+      canonicalAchievement += sum;
+      if (Number.isFinite(target) && target > 0) {
+        canonicalTarget += target;
+        canonicalPercentSum += sum / target;
+        canonicalHasPercent = true;
+      }
+    });
+    const totalAchievementPercent = canonicalHasPercent ? canonicalPercentSum : (Number.isFinite(Number(s.percentage)) ? Number(s.percentage) : null);
+
+    // "نسبة التارجت الشهري" في KPIs = النسبة الإجمالية (نفس نسبة التارجت
+    // المعروضة في كارت الأداء) + إجمالي نسبة تارجت الإشراف. مثال: نسبة
+    // إجمالية 10% + تارجت إشراف 9% => يظهر 19%.
+    const supervisorMonthlyTargetTotal = Object.values(data.supervisorTargets || {})
+      .flatMap(rows => rows || [])
+      .reduce((sum, r) => {
+        const n = Number(r?.targetMonthly);
+        return Number.isFinite(n) ? sum + n : sum;
+      }, 0);
+    const hasSupervisorMonthlyTarget = Number.isFinite(supervisorMonthlyTargetTotal) && supervisorMonthlyTargetTotal !== 0;
+
     if ($('emp-perf-card')) {
       $('emp-perf-card').innerHTML = `
-        <div class="info-item"><span>نسبة التارجت</span><b class="accent-value">${fmtPercent(s.percentage)}</b></div>
+        <div class="info-item"><span>نسبة التارجت</span><b class="accent-value">${fmtPercent(totalAchievementPercent)}</b></div>
         <div class="info-item"><span>أيام الحضور</span><b class="accent-value">${fmtAttendanceNumber(s.total_present_days ?? a.present_days)}</b></div>
         <div class="info-item"><span>رقم الشريحة</span><b>${escapeHtml(s.bonus_tier ?? '—')}</b></div>
         <div class="info-item"><span>إجمالي طبيعة العمل</span><b>${fmtNumber(s.work_nature_allowance)}</b></div>
@@ -434,25 +579,18 @@ async function loadSelfView(dashData) {
     // date filter currently selected on Home.
     renderSupervisorTargets(data.supervisorTargets || {});
 
-    // The monthly target is shown once, in the performance card.
-    // Supervisor monthly percentages are added to it for the final monthly target.
-    const supervisorSections = data.supervisorTargets || {};
-    let supervisorMonthlyTotal = 0;
-    Object.values(supervisorSections).forEach(rows => (rows || []).forEach(r => {
-      const n = Number(r.targetMonthly);
-      if (Number.isFinite(n)) supervisorMonthlyTotal += n;
-    }));
-    const baseMonthlyTarget = Number(s.monthly_target);
-    const finalMonthlyTarget = (Number.isFinite(baseMonthlyTarget) ? baseMonthlyTarget : 0) + supervisorMonthlyTotal;
-
     if ($('emp-kpi-grid')) {
       const presentDays = Number(s.total_present_days ?? a.present_days ?? 0);
       const absenceDays = Number(s.total_absence_days ?? s.total_absence ?? 0);
       const bonusTier = s.bonus_tier;
       const bonusTierNum = Number(bonusTier);
       const bonusTierDisplay = (bonusTier !== null && bonusTier !== undefined && bonusTier !== '' && Number.isFinite(bonusTierNum)) ? Math.round(bonusTierNum) : bonusTier;
+      const overallPercent = canonicalHasPercent ? canonicalPercentSum : (Number.isFinite(Number(s.percentage)) ? Number(s.percentage) : null);
+      const hasOverallPercent = Number.isFinite(overallPercent);
+      const monthlyTargetPercent = (hasOverallPercent ? overallPercent : 0) + (hasSupervisorMonthlyTarget ? supervisorMonthlyTargetTotal : 0);
+      const hasMonthlyTargetPercent = hasOverallPercent || hasSupervisorMonthlyTarget;
       const rawKpis = [
-        { label: 'نسبة التارجت الشهري', raw: finalMonthlyTarget, display: fmtPercent(finalMonthlyTarget), cls: 'blue', icon: 'rate' },
+        { label: 'نسبة التارجت الشهري', raw: hasMonthlyTargetPercent ? monthlyTargetPercent : null, display: hasMonthlyTargetPercent ? fmtPercent(monthlyTargetPercent) : '—', cls: 'blue', icon: 'rate' },
         { label: 'أيام الحضور', raw: presentDays, display: fmtAttendanceNumber(presentDays), cls: 'teal', icon: 'present' },
         { label: 'أيام الغياب', raw: absenceDays, display: absenceDays, cls: 'amber', icon: 'absent' },
         { label: 'رقم الشريحة', raw: bonusTier, display: bonusTierDisplay, cls: 'purple', icon: 'chart' }
@@ -468,13 +606,32 @@ async function loadSelfView(dashData) {
     // than one shift, show every stored shift separately above its own table.
     // The employee profile/KPIs above remain tied to the canonical target shift.
     const shiftProfiles = Array.isArray(data.shiftProfiles) ? data.shiftProfiles : [];
+    const selectedStage = $('f-stage')?.value || '__ALL__';
+    const selectedFrom = $('f-from')?.value || '';
+    const selectedTo = $('f-to')?.value || '';
+    const inSelectedPeriod = date => (!selectedFrom || date >= selectedFrom) && (!selectedTo || date <= selectedTo);
+    // stageTargets from the API is the per-stage monthly target pulled from
+    // Master!AO for each stage (see employee_stage_targets on the backend).
+    // Keep it alongside each stage's own snapshot target so every stage's
+    // percentage below is computed against ITS OWN target, never the
+    // employee's single overall total_target (that mismatch produced
+    // percentages in the thousands).
+    const globalStageTargets = data.stageTargets || {};
     const normalizedProfiles = shiftProfiles.map(p => {
       const stageMap = {};
+      const stageTargetMap = {};
       (p.stages || []).forEach(st => {
         if (!st || !st.role) return;
-        stageMap[st.role] = Object.entries(st.daily || {}).map(([date, value]) => ({ date, value }));
+         if (selectedStage !== '__ALL__' && selectedStage && st.role !== selectedStage) return;
+         stageMap[st.role] = Object.entries(st.daily || {})
+           .filter(([date]) => inSelectedPeriod(date))
+           .map(([date, value]) => ({ date, value }));
+         const ownTarget = Number(st.monthlyTarget);
+         stageTargetMap[st.role] = Number.isFinite(ownTarget) && ownTarget > 0
+           ? ownTarget
+           : Number(globalStageTargets[st.role]) || null;
       });
-      return { shift: p.shift || 'Other', stages: stageMap, summary: p.summary || {}, employee: p.employee || {} };
+      return { shift: p.shift || 'Other', stages: stageMap, stageTargets: stageTargetMap, summary: p.summary || {}, employee: p.employee || {} };
     });
 
     function renderShiftDetail(profile, showShiftHeading) {
@@ -482,7 +639,10 @@ async function loadSelfView(dashData) {
       const totalTargetEntry = allStageEntries.find(([name]) => String(name).trim().toUpperCase() === 'TOTAL TARGET %');
       const stageEntries = allStageEntries.filter(([name, rows]) => {
         if (String(name).trim().toUpperCase() === 'TOTAL TARGET %') return false;
-        if (String(name).trim() === 'الحضور') return false;
+         // A secondary snapshot is the employee's proof of attendance in a
+         // different shift. Keep that attendance row visible under Other,
+         // while the canonical shift keeps its existing performance layout.
+         if (String(name).trim() === 'الحضور' && profile.shift !== 'Other') return false;
         return (rows || []).some(r => r.value !== null && r.value !== undefined && r.value !== '');
       }).sort(([a], [b]) => String(a).localeCompare(String(b), 'ar'));
 
@@ -490,26 +650,45 @@ async function loadSelfView(dashData) {
       stageEntries.forEach(([, rows]) => rows.forEach(r => dateSet.add(r.date)));
       if (totalTargetEntry) totalTargetEntry[1].forEach(r => dateSet.add(r.date));
       const dates = [...dateSet].sort();
-      const periodPercent = fmtPercent(Number(profile.summary?.monthly_target));
-      const totalRowCount = stageEntries.length + (totalTargetEntry ? 1 : 0);
-      const head = '<th>المرحلة</th>' + dates.map(d => `<th>${escapeHtml(d.slice(5))}</th>`).join('') + '<th>الإجمالي</th><th>النسبة</th>';
+       const head = '<th>المرحلة</th>' + dates.map(d => `<th><span class="detail-date-head"><span class="detail-day">${detailWeekday(d)}</span><strong class="detail-date">${escapeHtml(d.slice(8) + '/' + d.slice(5, 7))}</strong></span></th>`).join('') + '<th>الإجمالي</th><th>التارجت الشهري</th><th>نسبة الإنجاز</th><th>النسبة الإجمالية</th>';
 
       if (!stageEntries.length && !totalTargetEntry) {
-        return `${showShiftHeading ? `<div class="shift-detail-heading"><span>تفاصيل Shift ${escapeHtml(profile.shift)}</span></div>` : ''}<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody><tr><td colspan="${dates.length + 3}"><div class="empty-state">لا توجد بيانات مطابقة.</div></td></tr></tbody></table></div>`;
+        return `${showShiftHeading ? `<div class="shift-detail-heading"><span>تفاصيل Shift ${escapeHtml(profile.shift)}</span></div>` : ''}<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody><tr><td colspan="${dates.length + 4}"><div class="empty-state">لا توجد بيانات مطابقة.</div></td></tr></tbody></table></div>`;
       }
+
+      // النسبة الإجمالية = تُحسب من الفترة المعروضة: مجموع نسب المراحل، ونسبة كل
+      // مرحلة = إنجازها في الفترة ÷ تارجتها. كانت تُسحب جاهزة من s.percentage
+      // (آخر دورة مستوردة) فلا تتغير بتغيّر الفترة أو الدورة المختارة.
+      let overallPercentSum = 0, hasAnyStagePercent = false;
+      let grandAchievement = 0, hasGrandAchievement = false;
+      let grandTarget = 0, hasGrandTarget = false;
 
       const stageRows = stageEntries.map(([stageName, rows], idx) => {
         const byDate = Object.fromEntries(rows.map(r => [r.date, r.value]));
-        let sum = 0, hasNum = false;
+         let sum = 0, hasNum = false;
         const cells = dates.map(d => {
           const v = byDate[d];
           if (v === undefined || v === null || v === '') return '<td class="cell-empty">—</td>';
-          if (typeof v === 'number' && Number.isFinite(v)) { sum += v; hasNum = true; return `<td class="cell-present">${fmtAttendanceNumber(v)}</td>`; }
+           const numericValue = Number(v);
+           if (Number.isFinite(numericValue) && String(v).trim() !== '') { sum += numericValue; hasNum = true; return `<td class="cell-present">${fmtAttendanceNumber(numericValue)}</td>`; }
           return `<td class="cell-present">${escapeHtml(v)}</td>`;
         }).join('');
-        const percentCell = idx === 0 ? `<td rowspan="${totalRowCount}" class="merged-target-percent"><div class="merged-target-percent-inner"><b class="merged-target-percent-value">${periodPercent}</b><span class="merged-target-percent-label">النسبة الإجمالية</span></div></td>` : '';
-        return `<tr><td><b>${escapeHtml(stageName)}</b></td>${cells}<td>${hasNum ? fmtAttendanceNumber(sum) : '—'}</td>${percentCell}</tr>`;
+         const isAttendance = String(stageName).trim() === 'الحضور';
+         // Each stage has its own monthly target (Master!AO for that stage's
+         // row), not the employee's single overall total_target — use it here.
+         const stageTarget = Number(profile.stageTargets?.[stageName]);
+         const hasStageTarget = Number.isFinite(stageTarget) && stageTarget > 0;
+         const stageRatio = !isAttendance && hasNum && hasStageTarget ? sum / stageTarget : null;
+
+         if (stageRatio != null) { overallPercentSum += stageRatio; hasAnyStagePercent = true; }
+         if (!isAttendance && hasNum) { grandAchievement += sum; hasGrandAchievement = true; }
+         if (!isAttendance && hasStageTarget) { grandTarget += stageTarget; hasGrandTarget = true; }
+         const stagePercent = stageRatio != null ? fmtPercent(stageRatio) : '—';
+         const percentCell = `<td>${stagePercent === '—' ? '—' : coloredPercent(stageRatio)}</td>`;
+         const targetCell = `<td>${hasStageTarget ? fmtAttendanceNumber(stageTarget) : '—'}</td>`;
+         return `<tr><td><b>${escapeHtml(stageName)}</b></td>${cells}<td>${hasNum ? fmtAttendanceNumber(sum) : '—'}</td>${targetCell}${percentCell}</tr>`;
       });
+      const overallStagePercent = hasAnyStagePercent ? overallPercentSum : null;
 
       if (totalTargetEntry) {
         const rows = totalTargetEntry[1] || [];
@@ -518,18 +697,160 @@ async function loadSelfView(dashData) {
           const v = byDate[d];
           if (v === undefined || v === null || v === '') return '<td class="cell-empty total-target-cell">—</td>';
           const n = Number(v);
-          return Number.isFinite(n) ? `<td class="cell-present total-target-cell">${fmtPercent(n)}</td>` : `<td class="cell-present total-target-cell">${escapeHtml(v)}</td>`;
+           return Number.isFinite(n) ? `<td class="cell-present total-target-cell">${coloredPercent(n)}</td>` : `<td class="cell-present total-target-cell">${escapeHtml(v)}</td>`;
         }).join('');
-        const totalTargetCell = Number.isFinite(Number(profile.summary?.monthly_target)) ? fmtPercent(Number(profile.summary.monthly_target)) : '—';
-        const percentCellForTotalRow = stageEntries.length === 0 ? `<td rowspan="${totalRowCount}" class="merged-target-percent"><div class="merged-target-percent-inner"><b class="merged-target-percent-value">${periodPercent}</b><span class="merged-target-percent-label">النسبة الإجمالية</span></div></td>` : '';
-        stageRows.push(`<tr class="total-target-master-row"><td><b>إجمالي التارجت اليومي</b></td>${cells}<td><b>${totalTargetCell}</b></td>${percentCellForTotalRow}</tr>`);
+         //  هنا = مجموع تارجت كل المراحل الحقيقي (grandTarget)،
+         // مش summary.total_target الخام المستورد من صف واحد بس في الشيت
+         // (ده اللي كان بيطلع رقم غريب زي 30000 مش له علاقة بمجموع المراحل).
+         const grandTargetCell = hasGrandTarget ? fmtAttendanceNumber(grandTarget) : '—';
+         const grandAchievementCell = hasGrandAchievement ? fmtAttendanceNumber(grandAchievement) : '—';
+         const percentCellForTotalRow = overallStagePercent == null ? '<td>—</td>' : `<td>${coloredPercent(overallStagePercent)}</td>`;
+        stageRows.push(`<tr class="total-target-master-row"><td><b> اليومي</b></td>${cells}<td><b>${grandAchievementCell}</b></td><td><b>${grandTargetCell}</b></td>${percentCellForTotalRow}</tr>`);
       }
 
-      return `${showShiftHeading ? `<div class="shift-detail-heading"><span>تفاصيل Shift ${escapeHtml(profile.shift)}</span></div>` : ''}<div class="table-wrap shift-detail-table"><table><thead><tr>${head}</tr></thead><tbody>${stageRows.join('')}</tbody></table></div>`;
+      // بادج "النسبة الإجمالية" الأزرق جنب الجدول، بنفس شكل صفحة الأدمن.
+      if (stageRows.length) {
+        const merged = `<td class="detail-percentage-merged" rowspan="${stageRows.length}"><b>${coloredPercent(overallStagePercent)}</b><small>النسبة الإجمالية</small></td>`;
+        stageRows[0] = stageRows[0].replace('</tr>', merged + '</tr>');
+      }
+      const table = `<div class="table-wrap shift-detail-table"><table><thead><tr>${head}</tr></thead><tbody>${stageRows.join('')}</tbody></table></div>`;
+
+      return `${showShiftHeading ? `<div class="shift-detail-heading"><span>تفاصيل Shift ${escapeHtml(profile.shift)}</span></div>` : ''}<div class="daily-details-wrap">${table}</div>`;
     }
 
-    const profilesToShow = normalizedProfiles.length > 1 ? normalizedProfiles : [{ shift: emp.shift || 'Other', stages: data.stages || {}, summary: s, employee: emp }];
+    const profilesToShow = normalizedProfiles.length > 1 ? normalizedProfiles : [{ shift: emp.shift || 'Other', stages: data.stages || {}, stageTargets: globalStageTargets, summary: s, employee: emp }];
     const duplicateShifts = normalizedProfiles.length > 1;
+     const exportDates = [...new Set(profilesToShow.flatMap(p => Object.values(p.stages || {}).flatMap(rows => (rows || []).map(r => r.date))))].sort();
+     const exportRows = profilesToShow.flatMap(profile => {
+       return Object.entries(profile.stages || {}).map(([stage, rows]) => {
+         const numericValues = (rows || []).map(r => Number(r.value)).filter(Number.isFinite);
+         const total = numericValues.reduce((sum, value) => sum + value, 0);
+         const isAttendance = String(stage).trim() === 'الحضور';
+         // Same fix as the on-screen table: each stage's own target, not the
+         // employee's single overall total_target.
+         const stageTarget = Number(profile.stageTargets?.[stage]);
+         const hasStageTarget = Number.isFinite(stageTarget) && stageTarget > 0;
+         return {
+           shift: profile.shift,
+           stage,
+           isAttendance,
+           values: Object.fromEntries((rows || []).map(r => [r.date, r.value])),
+           total: numericValues.length ? total : null,
+           target: hasStageTarget ? stageTarget : null,
+           percentage: !isAttendance && numericValues.length && hasStageTarget ? total / stageTarget : null,
+         };
+       });
+     });
+     //  والإنجاز الحقيقيين = مجموع كل المراحل (غير الحضور)،
+     // مش summary.total_target/total_achievement الخام المستوردة من صف واحد
+     // بس في الشيت (كانت بتطلع رقم غريب زي 30000 مش له علاقة بمجموع المراحل).
+     const exportGrandAchievement = exportRows.filter(r => !r.isAttendance && r.total != null).reduce((sum, r) => sum + r.total, 0);
+     const exportGrandTarget = exportRows.filter(r => !r.isAttendance && r.target != null).reduce((sum, r) => sum + r.target, 0);
+     const exportGrandPercent = exportRows.filter(r => r.percentage != null).reduce((sum, r) => sum + r.percentage, 0);
+     const exportHasPercent = exportRows.some(r => r.percentage != null);
+     window.__iemsEmployeeDetailExport = {
+       employee: emp,
+       summary: s,
+       grandAchievement: exportGrandAchievement,
+       grandTarget: exportGrandTarget,
+       grandPercent: exportHasPercent ? exportGrandPercent : null,
+       from: $('f-from')?.value || '',
+       to: $('f-to')?.value || '',
+       dates: exportDates,
+       rows: exportRows,
+     };
+
+     const downloadBlob = (blob, filename) => {
+       const link = document.createElement('a');
+       link.href = URL.createObjectURL(blob);
+       link.download = filename;
+       link.click();
+       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+     };
+     const employeeExportTable = () => {
+       const current = window.__iemsEmployeeDetailExport;
+       const head = ['الشيفت', 'المرحلة', ...current.dates.map(fmtDate), 'الإجمالي', 'التارجت الشهري', 'نسبة الإنجاز'];
+       const rows = current.rows.map(row => [
+         row.shift,
+         row.stage,
+         ...current.dates.map(date => row.values[date] ?? ''),
+         row.total ?? '',
+         row.target ?? '',
+         row.percentage === null ? '' : fmtPercent(row.percentage),
+       ]);
+       return { current, head, rows };
+     };
+     const exportEmployeeExcel = () => {
+       const { current, head, rows } = employeeExportTable();
+       const summaryRows = [
+         ['الموظف', current.employee.name],
+         ['ID', current.employee.id],
+         ['الفترة', `${fmtDate(current.from)} → ${fmtDate(current.to)}`],
+         ['النسبة الإجمالية', fmtPercent(current.grandPercent)],
+         ['إجمالي الإنجاز', current.grandAchievement ?? ''],
+         ['', current.grandTarget ?? ''],
+         [],
+         head,
+         ...rows,
+       ];
+       if (window.XLSX) {
+         const wb = XLSX.utils.book_new();
+         const ws = XLSX.utils.aoa_to_sheet(summaryRows);
+         ws['!cols'] = summaryRows[summaryRows.length - rows.length - 1].map((_, i) => ({ wch: Math.max(14, ...summaryRows.map(r => String(r[i] ?? '').length + 2).slice(0, 80)) }));
+         XLSX.utils.book_append_sheet(wb, ws, 'تفاصيل الموظف');
+         XLSX.writeFile(wb, `IEMS_Employee_${current.employee.id}_${current.from || 'all'}_${current.to || 'all'}.xlsx`);
+         return;
+       }
+       const xmlEscape = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+       const xmlRows = summaryRows.map(row => `<Row>${row.map(value => `<Cell><Data ss:Type="${typeof value === 'number' ? 'Number' : 'String'}">${xmlEscape(value)}</Data></Cell>`).join('')}</Row>`).join('');
+       const xml = `<?xml version="1.0"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="تفاصيل الموظف"><Table>${xmlRows}</Table></Worksheet></Workbook>`;
+       downloadBlob(new Blob([xml], { type: 'application/vnd.ms-excel' }), `IEMS_Employee_${current.employee.id}.xls`);
+     };
+     const buildEmployeePdfRoot = () => {
+       const { current, head, rows } = employeeExportTable();
+       const root = document.createElement('div');
+       root.id = 'employee-detail-pdf-root';
+       root.dir = 'rtl';
+       root.innerHTML = `<div class="employee-pdf-sheet"><h1>تفاصيل أداء الموظف</h1><p><b>${escapeHtml(current.employee.name)}</b> · ID ${escapeHtml(current.employee.id)} · ${fmtDate(current.from)} → ${fmtDate(current.to)}</p><div class="employee-pdf-summary"><span>نسبة التارجت: <b>${fmtPercent(current.grandPercent)}</b></span><span>الإنجاز: <b>${fmtNumber(current.grandAchievement)}</b></span><span>التارجت: <b>${fmtNumber(current.grandTarget)}</b></span></div><table><thead><tr>${head.map(cell => `<th>${escapeHtml(cell)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+       document.body.appendChild(root);
+       return root;
+     };
+     const exportEmployeePdf = async () => {
+       const current = window.__iemsEmployeeDetailExport;
+       if (!current) return;
+       const root = buildEmployeePdfRoot();
+       const cleanup = () => root.remove();
+       if (!window.html2canvas || !window.jspdf) {
+         const style = document.createElement('style');
+         style.textContent = '@media print{@page{size:A4 landscape;margin:8mm}body>*:not(#employee-detail-pdf-root){display:none!important}#employee-detail-pdf-root{display:block!important}}';
+         root.appendChild(style);
+         const printWindow = window.open('', '_blank');
+         if (printWindow) { printWindow.document.write(`<html><head><title>IEMS Employee Details</title></head><body>${root.innerHTML}</body></html>`); printWindow.document.close(); printWindow.focus(); setTimeout(() => printWindow.print(), 300); }
+         cleanup();
+         return;
+       }
+       try {
+         const canvas = await html2canvas(root, { scale: 2, backgroundColor: '#fff', useCORS: true, logging: false });
+         const { jsPDF } = window.jspdf;
+         const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape' });
+         const margin = 8, pageW = 297, pageH = 210, imgW = pageW - margin * 2, imgH = canvas.height * imgW / canvas.width, usableH = pageH - margin * 2;
+         let offset = 0, page = 0;
+         while (offset < imgH) {
+           if (page) pdf.addPage();
+           const sourceY = Math.round(offset / imgH * canvas.height);
+           const sourceH = Math.min(canvas.height - sourceY, Math.round(usableH / imgW * canvas.width));
+           const slice = document.createElement('canvas');
+           slice.width = canvas.width; slice.height = sourceH;
+           slice.getContext('2d').drawImage(canvas, 0, sourceY, canvas.width, sourceH, 0, 0, canvas.width, sourceH);
+           pdf.addImage(slice.toDataURL('image/jpeg', .92), 'JPEG', margin, margin, imgW, slice.height * imgW / slice.width);
+           offset += usableH; page++;
+         }
+         pdf.save(`IEMS_Employee_${current.employee.id}_${current.from || 'all'}_${current.to || 'all'}.pdf`);
+       } finally { cleanup(); }
+     };
+     if ($('employee-detail-excel')) $('employee-detail-excel').onclick = exportEmployeeExcel;
+     if ($('employee-detail-pdf')) $('employee-detail-pdf').onclick = exportEmployeePdf;
+
     const detailPanel = $('detail-panel');
     const targetShiftBanner = $('target-shift-banner');
     if (targetShiftBanner) {
@@ -613,12 +934,19 @@ window.__iemsDashboardRefresh = refreshDashboard;
 
 (()=>{
 const token=sessionStorage.getItem('iems_token'),raw=sessionStorage.getItem('iems_user');if(!token||!raw){location.href='/index.html';return}const user=JSON.parse(raw),$=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),num=v=>{const n=Number(v||0);return Number.isFinite(n)?n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2}):'0'},pct=v=>`${Math.round(Number(v||0))}%`,api=async p=>{const r=await fetch(p,{headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}});if(r.status===401){sessionStorage.clear();location.href='/index.html';throw Error('انتهت الجلسة')}const d=await r.json();if(!r.ok)throw Error(d.error||'حدث خطأ');return d};
-let dates=[],data=null;const iso=d=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)},fmtDate=v=>{if(!v)return'—';const[a,b,c]=v.split('-');return`${c}/${b}/${a}`},day=v=>new Date(v+'T00:00:00').toLocaleDateString('ar-EG',{weekday:'long'});
+let dates=[],data=null;
+// Payroll cycle (21st -> 20th) that contains a YYYY-MM-DD date.
+const iemsCycle=v=>{const d=new Date(v+'T00:00:00Z'),y=d.getUTCFullYear(),m=d.getUTCMonth(),day=d.getUTCDate();const st=new Date(Date.UTC(day>=21?y:(m===0?y-1:y),day>=21?m:(m===0?11:m-1),21));const en=new Date(Date.UTC(st.getUTCFullYear(),st.getUTCMonth()+1,20));return{start:st.toISOString().slice(0,10),end:en.toISOString().slice(0,10)}};
+const iso=d=>{const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)},fmtDate=v=>{if(!v)return'—';const[a,b,c]=v.split('-');return`${c}/${b}/${a}`},day=v=>new Date(v+'T00:00:00').toLocaleDateString('ar-EG',{weekday:'long'});
 const fill=(id,vals,label)=>{const s=$(id),cur=s.value;s.innerHTML=`<option value="__ALL__">${label}</option>`+(vals||[]).map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');const keep=(vals||[]).includes(cur)&&cur!=='__ALL__'?cur:'__ALL__';[...s.options].forEach(o=>o.selected=o.value===keep)};
 async function init(){const m=await api('/api/attendance/meta');dates=m.dates||[];fill('att-company',m.companies,'كل الشركات');fill('att-department',m.departments,'كل المراحل');fill('att-shift',m.shifts,'كل الشيفتات');if(dates.length){const first=dates[0],last=dates.at(-1);$('att-from').min=first;$('att-from').max=last;$('att-to').min=first;$('att-to').max=last;
   // Home starts with the full imported period. The user chooses the date range;
   // do not silently force today's date or a 7-day window.
   $('att-from').value=first; $('att-to').value=last;
+  // Every uploaded month is kept, so "all data" would add all months together.
+  // Default to the latest payroll cycle only (last uploaded cycle) for
+  // everyone, admin included — they can still widen the range manually.
+  {const c=iemsCycle(last);$('att-from').value=c.start<first?first:c.start;$('att-to').value=c.end>last?last:c.end}
 }}
 const values=id=>{const el=$(id);if(!el)return[];if(el.multiple)return [...el.selectedOptions].map(o=>o.value).filter(v=>v&&v!=='__ALL__');const v=el.value;return v&&v!=='__ALL__'?[v]:[]};
 const params=()=>{const p=new URLSearchParams();[['from','att-from'],['to','att-to']].forEach(([k,id])=>{const v=$(id)?.value;if(v)p.set(k,v)});[['company','att-company'],['department','att-department'],['shift','att-shift'],['status','att-status']].forEach(([k,id])=>values(id).forEach(v=>p.append(k,v)));const q=$('att-search')?.value?.trim();if(q)p.set('search',q);return p};
@@ -630,20 +958,51 @@ const bindMulti=()=>document.querySelectorAll('[data-multi-filter="true"]').forE
 function kpis(t){
   if(!$('attendance-kpis'))return;
   const shared=window.__iemsKpi;
+  // 5th element = the status filter value the card drills into ('' = all
+  // statuses) and 6th = the panel to scroll to once the data is refreshed.
   const rows=[
-    ['إجمالي الحضور',t.present,'present','present'],
-    ['نسبة الحضور',pct(t.attendance_rate),'rate','rate'],
-    ['إجمالي الغياب',t.absent,'absent','absent'],
-    ['نسبة الغياب',pct(t.total?t.absent/t.total*100:0),'absence-rate','rate'],
-    ['الغياب بدون إذن',t.unauthorized,'unauthorized','unauthorized']
+    ['إجمالي الحضور',t.present,'present','present','present','employee-detail-panel'],
+    ['نسبة الحضور',pct(t.attendance_rate),'rate','rate','','daily-panel'],
+    ['إجمالي الغياب',t.absent,'absent','absent','absent','employee-detail-panel'],
+    ['نسبة الغياب',pct(t.total?t.absent/t.total*100:0),'absence-rate','rate','absent','daily-panel'],
+    ['الغياب بدون إذن',t.unauthorized,'unauthorized','unauthorized','unauthorized','employee-detail-panel']
   ];
-  $('attendance-kpis').innerHTML=rows.map((x,i)=>{
-    const [label,val,cls,icon]=x;
+  // Keep all 12 Home KPIs in ONE grid: 7 overview cards + 5 attendance cards.
+  // The old implementation rendered them in two separate grids, which made
+  // the desktop layout break into inconsistent rows.
+  const target=$('kpi-grid');
+  if(!target)return;
+  // Own only the attendance-scoped cards: remove the previous set before
+  // appending so re-running this on every filter/refresh replaces them
+  // instead of piling up duplicates, and so the admin overview cards
+  // rendered by renderKpis() (above in this file) are never touched.
+  target.querySelectorAll('[data-kpi-scope="attendance"]').forEach(el=>el.remove());
+  const cards=rows.map((x,i)=>{
+    const [label,val,cls,icon,status,panel]=x;
     const value=typeof val==='string'?val:num(val);
-    return shared.kpiCard(label,value,cls,icon,shared.KPI_TREND_SHAPES[i]);
+    const h=shared.kpiCard(label,value,cls,icon,shared.KPI_TREND_SHAPES[i % shared.KPI_TREND_SHAPES.length]);
+    return `<div class="kpi-link-wrap" data-kpi-scope="attendance" data-kpi-status="${status}" data-kpi-panel="${panel}" role="button" tabindex="0" title="عرض التفاصيل">${h}</div>`;
   }).join('');
+  target.insertAdjacentHTML('beforeend',cards);
+  // These cards used to be inert (cursor:pointer but no handler). Clicking one
+  // now applies the matching status filter to the attendance data below,
+  // refreshes it and scrolls to the relevant table.
+  target.querySelectorAll('[data-kpi-scope="attendance"]').forEach(c=>{
+    const go=async()=>{
+      const st=c.dataset.kpiStatus||'',panelId=c.dataset.kpiPanel;
+      const sel=$('att-status');
+      if(sel){[...sel.options].forEach(o=>{o.selected=st?o.value===st:o.value==='__ALL__'})}
+      try{await refresh()}catch(_){}
+      const panel=$(panelId);
+      if(panel&&panel.style.display!=='none')panel.scrollIntoView({behavior:'smooth',block:'start'});
+    };
+    c.onclick=go;
+    c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}};
+  });
+  const attendance=$('attendance-kpis');
+  if(attendance) attendance.innerHTML='';
 }
-function line(rows){const s=$('attendance-line-chart');if(!rows.length){s.innerHTML='<text x="450" y="165" text-anchor="middle" class="att-axis-text">لا توجد بيانات</text>';return}const W=900,H=330,L=48,R=20,T=18,B=44,pw=W-L-R,ph=H-T-B,x=i=>L+(rows.length===1?pw/2:i/(rows.length-1)*pw),y=v=>T+ph-(Math.max(0,Math.min(100,+v||0))/100)*ph;let g=[0,25,50,75,100].map(v=>`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" class="att-grid-line"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" class="att-axis-text">${v}%</text>`).join(''),path=k=>rows.map((r,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(r[k]).toFixed(1)}`).join(' '),dots=(k,c)=>rows.map((r,i)=>`<circle cx="${x(i)}" cy="${y(r[k])}" r="4" class="${c}"/>`).join(''),labels=rows.map((r,i)=>`<text x="${x(i)}" y="${H-14}" text-anchor="middle" class="att-axis-text">${esc(r.date.slice(5))}</text>`).join('');s.innerHTML=g+`<path d="${path('attendance_rate')}" class="att-present-line"/><path d="${path('absence_rate')}" class="att-absent-line"/>${dots('attendance_rate','att-present-dot')}${dots('absence_rate','att-absent-dot')}${labels}`}
+function line(rows){const s=$('attendance-line-chart');if(!s)return;if(!rows.length){s.innerHTML='<text x="450" y="165" text-anchor="middle" class="att-axis-text">لا توجد بيانات</text>';return}const W=900,H=330,L=48,R=20,T=18,B=44,pw=W-L-R,ph=H-T-B,x=i=>L+(rows.length===1?pw/2:i/(rows.length-1)*pw),y=v=>T+ph-(Math.max(0,Math.min(100,+v||0))/100)*ph;let g=[0,25,50,75,100].map(v=>`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" class="att-grid-line"/><text x="${L-8}" y="${y(v)+4}" text-anchor="end" class="att-axis-text">${v}%</text>`).join(''),path=k=>rows.map((r,i)=>`${i?'L':'M'} ${x(i).toFixed(1)} ${y(r[k]).toFixed(1)}`).join(' '),dots=(k,c)=>rows.map((r,i)=>`<circle cx="${x(i)}" cy="${y(r[k])}" r="4" class="${c}"/>`).join(''),labels=rows.map((r,i)=>`<text x="${x(i)}" y="${H-14}" text-anchor="middle" class="att-axis-text">${esc(r.date.slice(5))}</text>`).join('');s.innerHTML=g+`<path d="${path('attendance_rate')}" class="att-present-line"/><path d="${path('absence_rate')}" class="att-absent-line"/>${dots('attendance_rate','att-present-dot')}${dots('absence_rate','att-absent-dot')}${labels}`}
 function bars(id,rows){const e=$(id),a=(rows||[]).slice(0,10);if(!e)return;if(!a.length){e.innerHTML='<div class="empty-attendance">لا توجد بيانات</div>';return}e.innerHTML=a.map(r=>{const t=+r.present+(+r.absent),p=t?(+r.present/t*100):0;return`<div class="bar-row"><span class="bar-label" title="${esc(r.name)}">${esc(r.name)}</span><div class="bar-track"><span class="bar-segment bar-present" style="width:${p}%"></span><span class="bar-segment bar-absent" style="width:${100-p}%"></span></div><span class="bar-value">${num(t)}</span></div>`}).join('')}
 function company(rows){const body=$('company-summary-body');if(!body)return;const total=rows.reduce((a,r)=>{a.employee_count+=+r.employee_count||0;a.present+=+r.present||0;a.absent+=+r.absent||0;a.gp+=+r.graduate_present||0;a.ga+=+r.graduate_absent||0;a.sp+=+r.student_present||0;a.sa+=+r.student_absent||0;return a},{employee_count:0,present:0,absent:0,gp:0,ga:0,sp:0,sa:0});const trs=rows.map(r=>{const tt=(+r.present||0)+(+r.absent||0);const ar=tt?(+r.present/tt*100):0;return`<tr><td><b>${esc(r.name)}</b></td><td>${num(r.employee_count)}</td><td class="att-status-present">${num(r.present)}</td><td class="att-status-absent">${num(r.absent)}</td><td class="att-status-present">${num(r.graduate_present)}</td><td class="att-status-absent">${num(r.graduate_absent)}</td><td class="att-status-present">${num(r.student_present)}</td><td class="att-status-absent">${num(r.student_absent)}</td><td>${pct(ar)}</td></tr>`}).join('');const tt=total.present+total.absent;const ar=tt?total.present/tt*100:0;body.innerHTML=(trs||'<tr><td colspan="9" class="empty-attendance">لا توجد بيانات</td></tr>')+`<tr class="summary-total-row"><td><b>الإجمالي</b></td><td><b>${num(total.employee_count)}</b></td><td class="att-status-present"><b>${num(total.present)}</b></td><td class="att-status-absent"><b>${num(total.absent)}</b></td><td class="att-status-present"><b>${num(total.gp)}</b></td><td class="att-status-absent"><b>${num(total.ga)}</b></td><td class="att-status-present"><b>${num(total.sp)}</b></td><td class="att-status-absent"><b>${num(total.sa)}</b></td><td><b>${pct(ar)}</b></td></tr>`}
 function employees(rows){$('employee-detail-summary').textContent=`${num(rows.length)} موظف · الفترة ${fmtDate(data.range.from)} إلى ${fmtDate(data.range.to)}`;$('employee-detail-body').innerHTML=rows.length?rows.map(r=>`<tr><td><b>${esc(r.name)}</b></td><td>${esc(r.id)}</td><td>${esc(r.company||'—')}</td><td>${esc(r.shift||'—')}</td><td>${esc(r.department||'—')}</td><td class="att-status-present">${num(r.present)}</td><td class="att-status-absent">${num(r.absent)}</td><td class="att-status-casual">${num(r.casual)}</td><td class="att-status-permission">${num(r.permission)}</td><td class="att-status-absent">${num(r.unauthorized)}</td><td class="att-status-medical">${num(r.medical)}</td><td>${pct(r.attendance_rate)}</td></tr>`).join(''):'<tr><td colspan="12" class="empty-attendance">لا توجد بيانات مطابقة</td></tr>'}
@@ -657,9 +1016,9 @@ function syncDashboardFilters(){
  // The visible attendance filter is the single source of truth on Home.
 }
 async function refresh(){const f=$('att-from').value,t=$('att-to').value;if(f&&t&&f>t){alert('تاريخ البداية يجب أن يسبق تاريخ النهاية.');return}try{const selected=await api('/api/attendance?'+params());render(selected);syncDashboardFilters();window.__iemsDashboardRefresh?.()}catch(e){$('employee-detail-body').innerHTML=`<tr><td colspan="11" class="empty-attendance">${esc(e.message)}</td></tr>`}}
-function range(k){if(!dates.length)return;const last=dates.at(-1),d=new Date(last+'T00:00:00');if(k==='all'){$('att-from').value=dates[0];$('att-to').value=last}else if(k==='today'){$('att-from').value=last;$('att-to').value=last}else{const x=new Date(d);x.setDate(d.getDate()-(k==='week'?6:30));$('att-from').value=iso(x);$('att-to').value=last}}
+function range(k){if(!dates.length)return;const last=dates.at(-1),d=new Date(last+'T00:00:00');if(k==='month'){const c=iemsCycle(last);$('att-from').value=c.start<dates[0]?dates[0]:c.start;$('att-to').value=c.end>last?last:c.end}else if(k==='all'){$('att-from').value=dates[0];$('att-to').value=last}else if(k==='today'){$('att-from').value=last;$('att-to').value=last}else{const x=new Date(d);x.setDate(d.getDate()-(k==='week'?6:30));$('att-from').value=iso(x);$('att-to').value=last}}
 if($('attendance-apply'))$('attendance-apply').onclick=refresh;
-if(!$('attendance-apply')){const host=document.querySelector('.attendance-apply-row')||document.querySelector('.attendance-filter-head-actions');if(host){const btn=document.createElement('button');btn.className='apply-btn filter-apply attendance-apply attendance-apply-full';btn.id='attendance-apply';btn.type='button';btn.title='عرض النتائج';btn.setAttribute('aria-label','عرض النتائج');btn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg><span>عرض النتائج</span>';host.appendChild(btn);btn.onclick=refresh;}}$('attendance-reset').onclick=async()=>{['att-company','att-department','att-shift','att-status'].forEach(clearMulti);$('att-search').value='';const first=dates[0],last=dates.at(-1);if(first&&last){$('att-from').value=first;$('att-to').value=last}await refresh()};$('att-from').onchange=()=>{if($('att-to').value&&$('att-from').value>$('att-to').value)$('att-to').value=$('att-from').value};document.querySelectorAll('.quick-ranges button[data-range]').forEach(b=>b.onclick=()=>{range(b.dataset.range)});function exportExcel(){if(!data){return}
+if(!$('attendance-apply')){const host=document.querySelector('.attendance-apply-row')||document.querySelector('.attendance-filter-head-actions');if(host){const btn=document.createElement('button');btn.className='apply-btn filter-apply attendance-apply attendance-apply-full';btn.id='attendance-apply';btn.type='button';btn.title='عرض النتائج';btn.setAttribute('aria-label','عرض النتائج');btn.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg><span>عرض النتائج</span>';host.appendChild(btn);btn.onclick=refresh;}}$('attendance-reset').onclick=async()=>{['att-company','att-department','att-shift','att-status'].forEach(clearMulti);$('att-search').value='';const first=dates[0],last=dates.at(-1);if(first&&last){$('att-from').value=first;$('att-to').value=last}await refresh()};$('att-from').onchange=()=>{if($('att-to').value&&$('att-from').value>$('att-to').value)$('att-to').value=$('att-from').value};document.querySelectorAll('.quick-ranges button[data-range]').forEach(b=>b.onclick=async()=>{range(b.dataset.range);await refresh()});function exportExcel(){if(!data){return}
 if(!window.XLSX){
   // Dependency-free Excel-compatible fallback (.xls / SpreadsheetML).
   const escXml=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -683,5 +1042,9 @@ if(!window.html2canvas||!window.jspdf){
   root.remove(); return;
 }const btn=$('attendance-pdf');btn.disabled=true;btn.dataset.original=btn.textContent;btn.textContent='جاري إنشاء PDF...';let root;try{root=buildPdfRoot();const canvas=await html2canvas(root,{scale:2,backgroundColor:'#fff',useCORS:true,logging:false});const {jsPDF}=window.jspdf;const pdf=new jsPDF({unit:'mm',format:'a4',orientation:'landscape'});const pageW=297,pageH=210,margin=8,imgW=pageW-margin*2,imgH=canvas.height*imgW/canvas.width,usableH=pageH-margin*2;let offset=0,page=0;while(offset<imgH){if(page)pdf.addPage();const sourceY=Math.round(offset/imgH*canvas.height);const sourceH=Math.min(canvas.height-sourceY,Math.round(usableH/imgW*canvas.width));const slice=document.createElement('canvas');slice.width=canvas.width;slice.height=sourceH;slice.getContext('2d').drawImage(canvas,0,sourceY,canvas.width,sourceH,0,0,canvas.width,sourceH);const sliceH=slice.height*imgW/slice.width;pdf.addImage(slice.toDataURL('image/jpeg',0.92),'JPEG',margin,margin,imgW,sliceH);offset+=usableH;page++}pdf.save(`IEMS_Attendance_${data.range.from}_${data.range.to}.pdf`)}catch(e){console.error(e);alert('حدث خطأ أثناء إنشاء ملف PDF.')}finally{root?.remove();btn.disabled=false;btn.textContent=btn.dataset.original||'تحميل PDF'}}
 $('attendance-print').onclick=()=>print();$('attendance-excel').onclick=exportExcel;$('attendance-pdf').onclick=exportPdf;
-(async()=>{try{bindMulti();await init();await refresh()}catch(e){console.error(e)}})();
+// loadSystemBanner() is defined in the first IIFE above, so calling it from
+// inside this second, separately-scoped IIFE threw ReferenceError and aborted
+// this whole boot sequence — no filters, no data, empty home page. It is now
+// shared deliberately via window.__iemsLoadSystemBanner.
+(async()=>{try{bindMulti();await (window.__iemsLoadSystemBanner?.());await init();await refresh()}catch(e){console.error(e)}})();
 })();

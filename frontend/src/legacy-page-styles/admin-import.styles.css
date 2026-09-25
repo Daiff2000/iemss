@@ -1,0 +1,45 @@
+
+/* Spreadsheet preview — shown before any database update. */
+.sheet-preview-panel{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.sheet-preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:14px}
+.sheet-preview-head h3{margin:3px 0 4px;font-size:18px}
+.preview-status{font-size:11px;font-weight:900;color:var(--primary);white-space:nowrap}
+.sheet-preview-container{display:flex;flex-direction:column;gap:16px}
+.sheet-preview-file{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:var(--panel)}
+.sheet-preview-file-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:var(--soft);border-bottom:1px solid var(--line)}
+.sheet-preview-file-head strong{font-size:12px}
+.sheet-preview-file-head small{font-size:10px;color:var(--muted)}
+.sheet-preview-scroll{overflow:auto;max-height:420px}
+.sheet-preview-table{width:100%;border-collapse:separate;border-spacing:0;min-width:760px}
+.sheet-preview-table th{position:sticky;top:0;z-index:2;background:linear-gradient(135deg,var(--primary),var(--primary-2));color:#fff;padding:10px;font-size:10px;text-align:right;white-space:nowrap}
+.sheet-preview-table td{padding:9px 10px;border-bottom:1px solid var(--line);font-size:10px;white-space:nowrap;text-align:right}
+.sheet-preview-table tbody tr:nth-child(even) td{background:var(--soft)}
+.sheet-preview-empty{padding:22px;text-align:center;color:var(--muted);font-weight:700}
+@media(max-width:760px){.sheet-preview-head{flex-direction:column}.sheet-preview-table{min-width:620px}}
+
+
+/* ===== Upload progress bar ===== */
+.import-progress{margin-top:16px;padding:14px 16px;border:1px solid var(--line);background:var(--soft,transparent);border-radius:12px}
+.import-progress[hidden]{display:none}
+.import-progress-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;font-size:12px;font-weight:800;color:var(--text)}
+.import-progress-head strong{font-size:13px;font-weight:900;color:var(--primary);font-variant-numeric:tabular-nums;direction:ltr}
+.import-progress-track{position:relative;height:10px;border-radius:999px;background:var(--line);overflow:hidden}
+.import-progress-fill{position:absolute;top:0;bottom:0;right:0;width:0;border-radius:999px;background:linear-gradient(90deg,var(--primary),#2e8fef);transition:width .25s ease;overflow:hidden}
+.import-progress-fill:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);transform:translateX(100%);animation:importShine 1.2s linear infinite}
+@keyframes importShine{to{transform:translateX(-100%)}}
+.import-progress.done .import-progress-fill{background:var(--success,#12b76a)}
+.import-progress.done .import-progress-fill:after,.import-progress.error .import-progress-fill:after{animation:none;display:none}
+.import-progress.done .import-progress-head strong{color:var(--success,#12b76a)}
+.import-progress.error .import-progress-fill{background:var(--danger,#d92d20)}
+.import-progress.error .import-progress-head strong{color:var(--danger,#d92d20)}
+@media (prefers-reduced-motion:reduce){.import-progress-fill{transition:none}.import-progress-fill:after{animation:none}}
+
+/* ===== Bulk password upload result ===== */
+.pw-result{margin-top:14px;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--soft,transparent);font-size:12px;line-height:2}
+.pw-result[hidden]{display:none}
+.pw-result .pw-line{display:flex;justify-content:space-between;gap:12px;font-weight:700}
+.pw-result .pw-line b{font-variant-numeric:tabular-nums;direction:ltr}
+.pw-result .pw-ok b{color:var(--success,#12b76a)}
+.pw-result .pw-warn b{color:var(--danger,#d92d20)}
+.pw-result .pw-ids{margin-top:6px;padding:8px 10px;border-radius:8px;background:var(--panel,transparent);border:1px solid var(--line);color:var(--muted);font-size:11px;line-height:1.8;word-break:break-word;direction:ltr;text-align:left}
+#pw-import-panel{margin-top:18px}

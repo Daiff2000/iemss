@@ -7,7 +7,7 @@ export default function AdminEmployees() {
     <LegacyPage
       bodyHtml={bodyHtml}
       pageStyleCss={pageStyleCss}
-      scripts={[ '/legacy/i18n.js', '/legacy/app-admin-employees.js', '/legacy/app-shell.js']}
+      scripts={[  '/legacy/app-admin-employees.js', '/legacy/app-shell.js']}
     />
   );
 }

@@ -1,0 +1,22 @@
+
+.creator-page .panel{margin-top:20px}
+.panel-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+.panel-header h2{margin:0 0 4px}
+.muted{margin:0;opacity:.68}
+.creator-table{width:100%;border-collapse:collapse}
+.creator-table th,.creator-table td{padding:13px 12px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+.creator-table th{font-weight:800}
+.creator-table td{font-size:13px}
+.banner-manager{display:grid;grid-template-columns:minmax(0,2fr) minmax(260px,1fr);gap:22px;align-items:start}
+.banner-preview-wrap{min-height:260px;border:1px dashed var(--line);border-radius:18px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:var(--soft)}
+.banner-preview{width:100%;height:260px;object-fit:cover}
+.banner-preview-empty{opacity:.55;padding:30px}
+.banner-actions{display:flex;flex-direction:column;gap:14px}
+.upload-box{border:1px dashed color-mix(in srgb,var(--primary) 42%,var(--line));border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:7px;cursor:pointer;background:color-mix(in srgb,var(--primary) 4%,var(--panel))}
+.upload-box input{display:none}
+.upload-box span{font-weight:800}
+.upload-box small{opacity:.65}
+.creator-actions{display:flex;gap:10px;flex-wrap:wrap}
+.danger-btn{border:0;border-radius:10px;padding:10px 15px;cursor:pointer;background:#ef4444;color:#fff}
+.creator-status{min-height:24px;font-weight:700}
+@media(max-width:800px){.banner-manager{grid-template-columns:1fr}.panel-header{align-items:flex-start;flex-direction:column}}

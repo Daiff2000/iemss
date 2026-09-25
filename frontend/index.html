@@ -16,6 +16,18 @@
       rel="stylesheet"
     />
     <title>Intercom Employee Management System</title>
+    <script>
+      // Each page script sets data-theme, but only after React has mounted and
+      // the legacy script has been fetched. Until then the document had no
+      // theme at all, so every navigation flashed the light palette before
+      // snapping to dark. Set it here, before first paint.
+      try {
+        document.documentElement.setAttribute(
+          'data-theme',
+          localStorage.getItem('iems-theme') === 'dark' ? 'dark' : 'light'
+        );
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
